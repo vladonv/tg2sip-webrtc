@@ -16,6 +16,9 @@
  */
 
 #include <cassert>
+#include <algorithm>
+#include <atomic>
+#include <spdlog/spdlog.h>
 #include "audio_bridge.h"
 
 using namespace voip;
@@ -128,6 +131,22 @@ pj_status_t SoftwareAudioOutput::GetFrameCallback(pjmedia_port *port, pjmedia_fr
 // ---- tgcalls::FakeAudioDeviceModule glue ----
 
 bool TgCallsRenderer::Render(const tgcalls::AudioFrame &frame) {
+    static std::atomic<uint64_t> call_count{0};
+    static std::atomic<int16_t> max_abs{0};
+
+    int16_t local_max = 0;
+    for (size_t i = 0; i < frame.num_samples; ++i) {
+        local_max = std::max(local_max, static_cast<int16_t>(std::abs(frame.audio_samples[i])));
+    }
+    auto prev = max_abs.load(std::memory_order_relaxed);
+    if (local_max > prev) max_abs.store(local_max, std::memory_order_relaxed);
+
+    auto n = call_count.fetch_add(1, std::memory_order_relaxed) + 1;
+    if (n % 100 == 0) {
+        spdlog::get("core")->info("[diag] TgCallsRenderer::Render calls={} num_samples={} max_abs_since_start={}",
+                                   n, frame.num_samples, max_abs.load(std::memory_order_relaxed));
+    }
+
     playout_buffer_.push(frame.audio_samples, frame.num_samples);
     return true;
 }

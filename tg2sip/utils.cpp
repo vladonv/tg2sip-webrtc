@@ -17,6 +17,17 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
 #include "utils.h"
 
 bool is_digits(const std::string &str) { return std::all_of(str.begin(), str.end(), ::isdigit); };
+
+std::string resolve_config_path(int argc, char **argv) {
+    if (argc > 1) {
+        return argv[1];
+    }
+    if (std::filesystem::exists("/etc/tg2sip-webrtc/config.ini")) {
+        return "/etc/tg2sip-webrtc/config.ini";
+    }
+    return "settings.ini";
+}

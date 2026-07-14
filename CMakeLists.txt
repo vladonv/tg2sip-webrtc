@@ -165,7 +165,7 @@ add_custom_command(
         TARGET tg2sip-webrtc PRE_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/settings.ini
-        $<TARGET_FILE_DIR:tg2sip-webrtc>)
+        $<TARGET_FILE_DIR:tg2sip-webrtc>/config.ini.sample)
 
 target_include_directories(tg2sip-webrtc PRIVATE
         ${PJSIP_INCLUDE_DIRS}
@@ -188,7 +188,9 @@ target_link_libraries(tg2sip-webrtc PRIVATE
 add_executable(gen_db
         tg2sip/gen_db.cpp
         tg2sip/settings.cpp
-        tg2sip/settings.h)
+        tg2sip/settings.h
+        tg2sip/utils.cpp
+        tg2sip/utils.h)
 
 target_include_directories(gen_db PRIVATE
         include)

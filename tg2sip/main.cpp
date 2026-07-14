@@ -26,13 +26,15 @@
 #include "sip.h"
 #include "gateway.h"
 
-int main() {
+int main(int argc, char **argv) {
     pthread_setname_np(pthread_self(), "main");
 
-    auto reader = INIReader("settings.ini");
+    auto config_path = resolve_config_path(argc, argv);
+    auto reader = INIReader(config_path);
     Settings settings(reader);
 
     if (!settings.is_loaded()) {
+        std::cerr << "Failed to load config file: " << config_path << std::endl;
         return 1;
     }
 

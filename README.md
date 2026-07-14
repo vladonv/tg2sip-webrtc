@@ -24,10 +24,14 @@ Your SIP PBX should be comaptible with `L16@48000` or `OPUS@48000` voice codec.
    Requires a C++17 compiler; PJSIP and TDLib need to be built from source
    (see `buildenv/` for the versions/patches this fork builds against).
 
-2. Obtain `api_id` and `api_hash` tokens from [this](https://my.telegram.org) page and put them in `settings.ini` file.
-3. Login into telegram with `gen_db` app
-4. Set SIP server settings in `settings.ini`
-5. Run `tg2sip-webrtc`
+2. The build drops a template at `build/config.ini.sample` (never overwritten in place - a fresh `cmake --build` always regenerates this exact file, so a real config never lives here). Copy it to one of the paths `tg2sip-webrtc` actually reads, in priority order:
+   1. An explicit path passed as the first command-line argument: `tg2sip-webrtc /path/to/config.ini`
+   2. `/etc/tg2sip-webrtc/config.ini` (recommended for a real install - `sudo mkdir -p /etc/tg2sip-webrtc && sudo cp build/config.ini.sample /etc/tg2sip-webrtc/config.ini`)
+   3. `settings.ini` in the current working directory (dev/in-tree convenience fallback - `cp build/config.ini.sample build/settings.ini`, then run from `build/`)
+3. Obtain `api_id` and `api_hash` tokens from [this](https://my.telegram.org) page and put them in your config file.
+4. Login into telegram with `gen_db` app (same config-resolution rule as above)
+5. Set SIP server settings in your config file
+6. Run `tg2sip-webrtc`
 
 SIP->Telegram calls can be done using 3 extension types:
 

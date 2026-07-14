@@ -22,6 +22,7 @@
 #include <functional>
 #include <map>
 #include "settings.h"
+#include "utils.h"
 
 // overloaded
 namespace detail {
@@ -235,12 +236,14 @@ private:
     }
 };
 
-int main() {
+int main(int argc, char **argv) {
 
-    auto reader = INIReader("settings.ini");
+    auto config_path = resolve_config_path(argc, argv);
+    auto reader = INIReader(config_path);
     Settings settings(reader);
 
     if (!settings.is_loaded()) {
+        std::cerr << "Failed to load config file: " << config_path << std::endl;
         return 1;
     }
 

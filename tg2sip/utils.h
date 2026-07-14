@@ -23,6 +23,12 @@
 
 bool is_digits(const std::string &str);
 
+// Resolves the config file path: an explicit argv[1] wins, otherwise prefer
+// the system-wide install location, falling back to a local settings.ini for
+// dev/in-tree runs (build/ has one copied in by CMake as config.ini.sample -
+// rename or pass it explicitly).
+std::string resolve_config_path(int argc, char **argv);
+
 template<class ToT, class FromT>
 std::unique_ptr<ToT> move_unique_ptr_as(std::unique_ptr<FromT> &from) {
     return std::unique_ptr<ToT>(static_cast<ToT *>(from.release()));
