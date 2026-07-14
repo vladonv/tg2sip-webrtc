@@ -19,6 +19,7 @@
 #define TG2SIP_UTILS_H
 
 #include <memory>
+#include <string>
 
 bool is_digits(const std::string &str);
 

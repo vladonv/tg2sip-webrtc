@@ -123,7 +123,8 @@ void Client::process_update(Object update) {
             break;
         }
         case td_api::updateCall::ID:
-        case td_api::updateNewMessage::ID: {
+        case td_api::updateNewMessage::ID:
+        case td_api::updateNewCallSignalingData::ID: {
             events.emplace(std::move(update));
             break;
         }
@@ -154,7 +155,7 @@ std::future<Client::Object> Client::send_query_async(td_api::object_ptr<td_api::
         try {
             promise->set_value(std::move(object));
         } catch (std::future_error &error) {
-            logger->critical("failed to set send_query_async promise value {}", error.code());
+            logger->critical("failed to set send_query_async promise value {}", error.what());
         }
     });
 

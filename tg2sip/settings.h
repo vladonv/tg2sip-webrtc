@@ -29,7 +29,7 @@ private:
     int log_level_;
     int pjsip_log_level_;
     bool pjsip_log_sip_messages_;
-    int tgvoip_log_level_;
+    int tgcalls_log_level_;
     int tdlib_log_level_;
 
     unsigned int sip_port_;
@@ -90,7 +90,7 @@ public:
 
     bool pjsip_log_sip_messages() const { return pjsip_log_sip_messages_; }
 
-    int tgvoip_log_level() const { return tgvoip_log_level_; };
+    int tgcalls_log_level() const { return tgcalls_log_level_; };
 
     int tdlib_log_level() const { return tdlib_log_level_; };
 

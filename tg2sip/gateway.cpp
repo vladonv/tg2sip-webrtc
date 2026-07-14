@@ -25,15 +25,6 @@ namespace td_api = td::td_api;
 
 volatile sig_atomic_t e_flag = 0;
 
-namespace {
-    vector<string> voip_library_versions() {
-        // actually we want to provide real tgvoip version from
-        // tgvoip::VoIPController::GetVersion()
-        // but telegram servers accepts only this one
-        return vector<string>{"2.4.4"};
-    }
-}
-
 namespace state_machine::guards {
     bool IsIncoming::operator()(const td::td_api::object_ptr<td::td_api::updateCall> &event) const {
         return !event->call_->is_outgoing_;
@@ -221,8 +212,8 @@ namespace state_machine::actions {
                 td_api::make_object<td_api::callProtocol>(settings.udp_p2p(),
                                                           settings.udp_reflector(),
                                                           CALL_PROTO_MIN_LAYER,
-                                                          tgvoip::VoIPController::GetConnectionMaxLayer(),
-                                                          voip_library_versions())
+                                                          voip::TgCallsController::GetConnectionMaxLayer(),
+                                                          voip::TgCallsController::Versions())
         )).get();
 
         if (response->get_id() == td_api::error::ID) {
@@ -312,64 +303,70 @@ namespace state_machine::actions {
         }
     }
 
-    void state_machine::actions::CreateTgVoip::operator()(Context &ctx, const Settings &settings,
+    void state_machine::actions::CreateTgVoip::operator()(Context &ctx, tg::Client &tg_client,
+                                                          const Settings &settings,
                                                           const td::td_api::object_ptr<td::td_api::updateCall> &event,
+                                                          OptionalQueue<state_machine::events::Event> &internal_events,
                                                           std::shared_ptr<spdlog::logger> logger) const {
 
-        DEBUG(logger, "[{}] creating voip for TG #{}", ctx.id(), ctx.tg_call_id);
-
-        using namespace tgvoip;
+        DEBUG(logger, "[{}] creating tgcalls voip for TG #{}", ctx.id(), ctx.tg_call_id);
 
         const auto &state = static_cast<const td_api::callStateReady &>(*event->call_->state_);
-        auto voip_controller = std::make_shared<VoIPController>();
 
-        static auto config = VoIPController::Config(
-                3000,   /*init_timeout*/
-                3000,   /*recv_timeout*/
-                DATA_SAVING_NEVER, /*data_saving*/
-                settings.aec_enabled(),   /*enableAEC*/
-                settings.ns_enabled(),  /*enableNS*/
-                settings.agc_enabled(),  /*enableAGC*/
-                false   /*enableCallUpgrade*/
-        );
-        voip_controller->SetConfig(config);
-        if (settings.voip_proxy_enabled()) {
-            voip_controller->SetProxy(
-                    PROXY_SOCKS5,
-                    settings.voip_proxy_address(),
-                    settings.voip_proxy_port(),
-                    settings.voip_proxy_username(),
-                    settings.voip_proxy_password()
-            );
-        }
+        std::array<uint8_t, 256> encryption_key{};
+        memcpy(encryption_key.data(), state.encryption_key_.data(), 256);
 
-        char encryption_key[256];
-        memcpy(encryption_key, state.encryption_key_.c_str(), 256);
-        voip_controller->SetEncryptionKey(encryption_key, event->call_->is_outgoing_);
-
-        vector<Endpoint> endpoints;
+        std::vector<tgcalls::Endpoint> endpoints;
+        std::vector<tgcalls::RtcServer> rtc_servers;
         for (const auto &server : state.servers_) {
-            if (server->type_->get_id() != td_api::callServerTypeTelegramReflector::ID)
-                continue;
+            if (server->type_->get_id() == td_api::callServerTypeTelegramReflector::ID) {
+                auto reflector = static_cast<const td_api::callServerTypeTelegramReflector *>(server->type_.get());
 
-            auto reflector = static_cast<const td_api::callServerTypeTelegramReflector *>(server->type_.get());
+                tgcalls::Endpoint endpoint;
+                endpoint.endpointId = server->id_;
+                endpoint.host.ipv4 = server->ip_address_;
+                endpoint.host.ipv6 = server->ipv6_address_;
+                endpoint.port = static_cast<uint16_t>(server->port_);
+                endpoint.type = tgcalls::EndpointType::UdpRelay;
+                memcpy(endpoint.peerTag, reflector->peer_tag_.data(), 16);
+                endpoints.emplace_back(endpoint);
+            } else if (server->type_->get_id() == td_api::callServerTypeWebrtc::ID) {
+                auto webrtc_server = static_cast<const td_api::callServerTypeWebrtc *>(server->type_.get());
+                if (!webrtc_server->supports_turn_ && !webrtc_server->supports_stun_) {
+                    continue;
+                }
 
-            unsigned char peer_tag[16];
-            memcpy(peer_tag, reflector->peer_tag_.c_str(), 16);
-            auto ipv4 = IPv4Address(server->ip_address_);
-            auto ipv6 = IPv6Address(server->ipv6_address_);
-            endpoints.emplace_back(Endpoint(server->id_,
-                                            static_cast<uint16_t>(server->port_),
-                                            ipv4,
-                                            ipv6,
-                                            Endpoint::UDP_RELAY,
-                                            peer_tag));
+                tgcalls::RtcServer rtc_server;
+                rtc_server.host = !server->ip_address_.empty() ? server->ip_address_ : server->ipv6_address_;
+                rtc_server.port = static_cast<uint16_t>(server->port_);
+                rtc_server.login = webrtc_server->username_;
+                rtc_server.password = webrtc_server->password_;
+                rtc_server.isTurn = webrtc_server->supports_turn_;
+                rtc_servers.emplace_back(rtc_server);
+            }
         }
-        voip_controller->SetRemoteEndpoints(endpoints, settings.udp_p2p(), VoIPController::GetConnectionMaxLayer());
-        voip_controller->Start();
-        voip_controller->Connect();
 
-        ctx.controller = std::move(voip_controller);
+        auto ctx_id = ctx.id();
+        auto controller = std::make_shared<voip::TgCallsController>(
+                encryption_key,
+                event->call_->is_outgoing_,
+                std::move(endpoints),
+                std::move(rtc_servers),
+                settings.udp_p2p(),
+                settings.aec_enabled(),
+                settings.ns_enabled(),
+                settings.agc_enabled(),
+                [&internal_events, ctx_id](const std::vector<uint8_t> &data) {
+                    // Called from tgcalls' own network thread - must not
+                    // touch tg::Client directly from here (see the
+                    // SignalingDataEmitted comment in gateway.h).
+                    internal_events.emplace(state_machine::events::SignalingDataEmitted{ctx_id, data});
+                });
+
+        controller->Start();
+        controller->Connect();
+
+        ctx.controller = std::move(controller);
     }
 
     void state_machine::actions::BridgeAudio::operator()(Context &ctx, sip::Client &sip_client,
@@ -440,8 +437,8 @@ namespace state_machine::actions {
                 id /* id */,
                 td_api::make_object<td_api::callProtocol>(settings_->udp_p2p(), settings_->udp_reflector(),
                                                           CALL_PROTO_MIN_LAYER,
-                                                          tgvoip::VoIPController::GetConnectionMaxLayer(),
-                                                          voip_library_versions()),
+                                                          voip::TgCallsController::GetConnectionMaxLayer(),
+                                                          voip::TgCallsController::Versions()),
                 false /* is_video_ */)
         ).get();
 
@@ -593,7 +590,7 @@ namespace state_machine::actions {
 
 namespace state_machine {
 
-    Logger::Logger(std::string context_id, shared_ptr<spdlog::logger> logger) : logger_(std::move(logger)),
+    Logger::Logger(std::string context_id, std::shared_ptr<spdlog::logger> logger) : logger_(std::move(logger)),
                                                                                 context_id_(std::move(context_id)) {
         TRACE(logger_, "[{}] logger created", context_id_);
     }
@@ -752,6 +749,9 @@ void Gateway::start() {
                 case updateNewMessage::ID:
                     process_event(move_object_as<updateNewMessage>(object));
                     break;
+                case updateNewCallSignalingData::ID:
+                    process_event(move_object_as<updateNewCallSignalingData>(object));
+                    break;
                 default:
                     break;
             }
@@ -891,6 +891,40 @@ void Gateway::process_event(state_machine::events::InternalError &event) {
         bridges.erase(iter);
     }
 
+}
+
+void Gateway::process_event(state_machine::events::SignalingDataEmitted &event) {
+    // Not an sml transition - just forward to the right call's controller.
+    auto iter = std::find_if(bridges.begin(), bridges.end(), [id = event.ctx_id](const Bridge *bridge) {
+        return bridge->ctx->id() == id;
+    });
+
+    if (iter == bridges.end() || !(*iter)->ctx->controller) {
+        return;
+    }
+
+    td::td_api::object_ptr<td::td_api::sendCallSignalingData> request =
+            td_api::make_object<td_api::sendCallSignalingData>(
+                    (*iter)->ctx->tg_call_id, std::string(event.data.begin(), event.data.end()));
+    tg_client_.send_query_async(std::move(request));
+}
+
+void Gateway::process_event(td::td_api::object_ptr<td::td_api::updateNewCallSignalingData> update_signaling_data) {
+    // Deliberately not search_call() - that auto-creates a Bridge on miss,
+    // which is right for a fresh updateCall but wrong here: signaling data
+    // for a call we don't know about (already torn down, or a race at
+    // teardown) should just be dropped, not spawn an empty context for it.
+    auto iter = std::find_if(bridges.begin(), bridges.end(),
+                             [id = update_signaling_data->call_id_](const Bridge *bridge) {
+                                 return bridge->ctx->tg_call_id == id;
+                             });
+
+    if (iter == bridges.end() || !(*iter)->ctx->controller) {
+        return;
+    }
+
+    auto &raw = update_signaling_data->data_;
+    (*iter)->ctx->controller->UpdateSignaling(std::vector<uint8_t>(raw.begin(), raw.end()));
 }
 
 template<typename TSipEvent>

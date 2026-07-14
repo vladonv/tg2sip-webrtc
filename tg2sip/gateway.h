@@ -20,7 +20,7 @@
 
 #include <stdexcept>
 #include <regex>
-#include <libtgvoip/VoIPController.h>
+#include "voip/controller.h"
 #include <boost/sml.hpp>
 #include <csignal>
 #include "sip.h"
@@ -41,7 +41,19 @@ namespace state_machine::events {
         pj::CallOpParam prm;
     };
 
-    typedef std::variant<InternalError> Event;
+    // Outbound tgcalls signaling data (Descriptor::signalingDataEmitted)
+    // fires from tgcalls' own network thread, never the Gateway loop thread
+    // - routed through internal_events_ (already mutex-protected) instead
+    // of calling tg::Client directly, same reasoning as the "send_query_async
+    // from TG thread will cause deadlock" guard in tg.cpp. Not an sml
+    // transition event: handled by a direct Gateway::process_event overload
+    // that bypasses the state machine entirely.
+    struct SignalingDataEmitted {
+        std::string ctx_id;
+        std::vector<uint8_t> data;
+    };
+
+    typedef std::variant<InternalError, SignalingDataEmitted> Event;
 }
 
 namespace state_machine::guards {
@@ -144,8 +156,9 @@ namespace state_machine::actions {
     };
 
     struct CreateTgVoip {
-        void operator()(Context &ctx, const Settings &settings,
+        void operator()(Context &ctx, tg::Client &tg_client, const Settings &settings,
                         const td::td_api::object_ptr<td::td_api::updateCall> &event,
+                        OptionalQueue<state_machine::events::Event> &internal_events,
                         std::shared_ptr<spdlog::logger> logger) const;
     };
 
@@ -193,7 +206,7 @@ namespace state_machine::actions {
 namespace state_machine {
     class Logger {
     public:
-        Logger(std::string context_id, shared_ptr<spdlog::logger> logger);
+        Logger(std::string context_id, std::shared_ptr<spdlog::logger> logger);
 
         virtual ~Logger();
 
@@ -238,7 +251,7 @@ public:
 
     pjsua_call_id sip_call_id{PJSUA_INVALID_ID};
     int32_t tg_call_id{0};
-    std::shared_ptr<tgvoip::VoIPController> controller{nullptr};
+    std::shared_ptr<voip::TgCallsController> controller{nullptr};
 
     std::string ext_phone;
     std::string ext_username;
@@ -295,7 +308,11 @@ private:
 
     void process_event(td::td_api::object_ptr<td::td_api::updateNewMessage> update_message);
 
+    void process_event(td::td_api::object_ptr<td::td_api::updateNewCallSignalingData> update_signaling_data);
+
     void process_event(state_machine::events::InternalError &event);
+
+    void process_event(state_machine::events::SignalingDataEmitted &event);
 
     template<typename TSipEvent>
     void process_event(const TSipEvent &event);

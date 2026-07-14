@@ -29,6 +29,7 @@
 #pragma clang diagnostic ignored "-Wgnu-string-literal-operator-template"
 #pragma clang diagnostic ignored "-Wzero-length-array"
 #elif defined(__GNUC__)
+#pragma push_macro("__has_builtin")
 #if !defined(__has_builtin)
 #define __has_builtin(...) 0
 #endif
@@ -2525,8 +2526,8 @@ BOOST_SML_NAMESPACE_END
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #elif defined(__GNUC__)
-#undef __has_builtin
 #pragma GCC diagnostic pop
+#pragma pop_macro("__has_builtin")
 #elif defined(_MSC_VER)
 #undef __has_builtin
 #undef __has_builtin__make_integer_seq

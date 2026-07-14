@@ -31,7 +31,7 @@ Settings::Settings(INIReader &reader) {
     file_min_level_ = std::clamp(static_cast<int>(reader.GetInteger("logging", "file_min_level", 0)), 0, 6);
     log_level_ = std::clamp(static_cast<int>(reader.GetInteger("logging", "core", 2)), 0, 6);
     tdlib_log_level_ = std::clamp(static_cast<int>(reader.GetInteger("logging", "tdlib", 3)), 0, 6);
-    tgvoip_log_level_ = std::clamp(static_cast<int>(reader.GetInteger("logging", "tgvoip", 5)), 0, 6);
+    tgcalls_log_level_ = std::clamp(static_cast<int>(reader.GetInteger("logging", "tgcalls", 5)), 0, 6);
     pjsip_log_level_ = std::clamp(static_cast<int>(reader.GetInteger("logging", "pjsip", 2)), 0, 6);
     pjsip_log_sip_messages_ = reader.GetBoolean("logging", "sip_messages", true);
 

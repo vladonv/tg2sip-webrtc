@@ -19,6 +19,7 @@
 #define TG2SIP_QUEUE_H
 
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <condition_variable>
 

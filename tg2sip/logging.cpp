@@ -17,6 +17,9 @@
 
 #include <iostream>
 #include <td/telegram/Log.h>
+#include <tgcalls/Instance.h>
+#include <spdlog/sinks/ansicolor_sink.h>
+#include <spdlog/sinks/rotating_file_sink.h>
 #include "logging.h"
 
 void init_logging(Settings &settings) {
@@ -35,7 +38,7 @@ void init_logging(Settings &settings) {
         std::vector<string> loggers;
         loggers.emplace_back("core");
         loggers.emplace_back("pjsip");
-        loggers.emplace_back("tgvoip");
+        loggers.emplace_back("tgcalls");
 
         for (auto log_name : loggers) {
             auto logger = std::make_shared<spdlog::logger>(log_name, begin(sinks), end(sinks));
@@ -60,6 +63,9 @@ void init_logging(Settings &settings) {
 
     spdlog::get("core")->set_level(static_cast<spdlog::level::level_enum>(settings.log_level()));
     spdlog::get("pjsip")->set_level(static_cast<spdlog::level::level_enum>(settings.pjsip_log_level()));
-    spdlog::get("tgvoip")->set_level(static_cast<spdlog::level::level_enum>(settings.tgvoip_log_level()));
+    spdlog::get("tgcalls")->set_level(static_cast<spdlog::level::level_enum>(settings.tgcalls_log_level()));
 
+    tgcalls::SetLoggingFunction([](const std::string &message) {
+        spdlog::get("tgcalls")->info(message);
+    });
 }

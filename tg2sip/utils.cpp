@@ -16,6 +16,7 @@
  */
 
 #include <algorithm>
+#include <cctype>
 #include "utils.h"
 
 bool is_digits(const std::string &str) { return std::all_of(str.begin(), str.end(), ::isdigit); };
