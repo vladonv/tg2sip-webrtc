@@ -1,3 +1,14 @@
+# DISABLED (moved out of .github/workflows/ so GitHub Actions won't pick it
+# up) as part of the tg2sip -> tg2sip-webrtc fork/rename. This pipeline
+# predates the tgcalls/WebRTC migration and TDLib master bump: it builds
+# inside infactum/tg2sip-builder containers (Docker Hub images this fork
+# doesn't own/control) using the old libtgvoip-era recipe, with no
+# `git submodule update --init --recursive` step for third_party/tgcalls and
+# no awareness of the GCC14/newer-toolchain fixes this fork needed. It will
+# not build this fork's code as-is. Needs a real rewrite (own build
+# containers or a plain ubuntu-latest runner with the apt/source-build steps
+# from this fork's README) before re-enabling - not just a find/replace of
+# the project name.
 name: CI
 
 on: [push, pull_request]

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(tg2sip)
+project(tg2sip-webrtc)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -139,7 +139,7 @@ pkg_check_modules(ABSL REQUIRED
         absl_statusor absl_bad_optional_access absl_bad_variant_access
         absl_raw_hash_set absl_city absl_low_level_hash)
 
-add_executable(tg2sip
+add_executable(tg2sip-webrtc
         tg2sip/main.cpp
         tg2sip/tg.cpp
         tg2sip/tg.h
@@ -162,12 +162,12 @@ add_executable(tg2sip
         )
 
 add_custom_command(
-        TARGET tg2sip PRE_BUILD
+        TARGET tg2sip-webrtc PRE_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/settings.ini
-        $<TARGET_FILE_DIR:tg2sip>)
+        $<TARGET_FILE_DIR:tg2sip-webrtc>)
 
-target_include_directories(tg2sip PRIVATE
+target_include_directories(tg2sip-webrtc PRIVATE
         ${PJSIP_INCLUDE_DIRS}
         ${PROJECT_SOURCE_DIR}
         ${OPUS_INCLUDE_DIRS}
@@ -175,7 +175,7 @@ target_include_directories(tg2sip PRIVATE
         ${TGCALLS_ROOT}
         include)
 
-target_link_libraries(tg2sip PRIVATE
+target_link_libraries(tg2sip-webrtc PRIVATE
         ${PJSIP_LIBRARIES}
         ${TGCALLS_LINK_LIBRARIES}
         ${FFMPEG_LIBRARIES}
