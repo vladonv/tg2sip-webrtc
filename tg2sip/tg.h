@@ -57,7 +57,7 @@ namespace tg {
         const double WAIT_TIMEOUT = 10;
 
         std::unique_ptr<td::Client> client;
-        td::tl::unique_ptr<td_api::tdlibParameters> lib_parameters;
+        td_api::object_ptr<td_api::setTdlibParameters> lib_parameters;
         td_api::object_ptr<td_api::Function> set_proxy;
 
         std::thread thread_;

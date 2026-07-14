@@ -166,7 +166,7 @@ private:
                             std::cin >> first_name;
                             std::cout << "Enter your last name: " << std::flush;
                             std::cin >> last_name;
-                            send_query(td_api::make_object<td_api::registerUser>(first_name, last_name),
+                            send_query(td_api::make_object<td_api::registerUser>(first_name, last_name, false),
                                        create_authentication_query_handler());
                         },
                         [this](td_api::authorizationStateWaitPassword &) {
@@ -186,30 +186,36 @@ private:
                             send_query(td_api::make_object<td_api::setAuthenticationPhoneNumber>(phone_number, nullptr),
                                        create_authentication_query_handler());
                         },
-                        [this](td_api::authorizationStateWaitEncryptionKey &) {
-                            send_query(td_api::make_object<td_api::checkDatabaseEncryptionKey>(""),
-                                       create_authentication_query_handler());
-
+                        [this](td_api::authorizationStateWaitPremiumPurchase &) {
+                            std::cerr << "This account requires a Telegram Premium purchase to log in - unsupported here"
+                                      << std::endl;
+                        },
+                        [this](td_api::authorizationStateWaitEmailAddress &) {
+                            std::cerr << "This account requires email-based login - unsupported here" << std::endl;
+                        },
+                        [this](td_api::authorizationStateWaitEmailCode &) {
+                            std::cerr << "This account requires an email login code - unsupported here" << std::endl;
+                        },
+                        [this](td_api::authorizationStateWaitTdlibParameters &) {
                             if (settings.proxy_enabled()) {
                                 auto socks_proxy_type = td_api::make_object<td_api::proxyTypeSocks5>(
                                         settings.proxy_username(),
                                         settings.proxy_password()
                                 );
-                                send_query(td_api::make_object<td_api::addProxy>(
+                                auto proxy_server = td_api::make_object<td_api::proxy>(
                                         settings.proxy_address(),
                                         settings.proxy_port(),
-                                        true,
-                                        td_api::move_object_as<td_api::ProxyType>(socks_proxy_type)),
+                                        td_api::move_object_as<td_api::ProxyType>(socks_proxy_type));
+                                send_query(td_api::make_object<td_api::addProxy>(
+                                        std::move(proxy_server), true, ""),
                                            [](Object) {});
                             } else {
                                 send_query(td_api::make_object<td_api::disableProxy>(), [](Object) {});
                             }
 
-                        },
-                        [this](td_api::authorizationStateWaitTdlibParameters &) {
-                            auto lib_parameters = td_api::make_object<td_api::tdlibParameters>();
-                            lib_parameters = td_api::make_object<td_api::tdlibParameters>();
+                            auto lib_parameters = td_api::make_object<td_api::setTdlibParameters>();
 
+                            lib_parameters->use_test_dc_ = false;
                             lib_parameters->api_id_ = settings.api_id();
                             lib_parameters->api_hash_ = settings.api_hash();
                             lib_parameters->database_directory_ = settings.db_folder();
@@ -223,10 +229,8 @@ private:
                             lib_parameters->use_chat_info_database_ = true;
                             lib_parameters->use_message_database_ = false;
                             lib_parameters->use_secret_chats_ = false;
-                            lib_parameters->enable_storage_optimizer_ = true;
 
-                            send_query(td_api::make_object<td_api::setTdlibParameters>(std::move(lib_parameters)),
-                                       create_authentication_query_handler());
+                            send_query(std::move(lib_parameters), create_authentication_query_handler());
                         }));
     }
 };

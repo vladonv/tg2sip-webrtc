@@ -40,8 +40,9 @@ Client::~Client() {
 }
 
 void Client::init_lib_parameters(Settings &settings) {
-    lib_parameters = td_api::make_object<td_api::tdlibParameters>();
+    lib_parameters = td_api::make_object<td_api::setTdlibParameters>();
 
+    lib_parameters->use_test_dc_ = false;
     lib_parameters->api_id_ = settings.api_id();
     lib_parameters->api_hash_ = settings.api_hash();
     lib_parameters->database_directory_ = settings.db_folder();
@@ -55,7 +56,6 @@ void Client::init_lib_parameters(Settings &settings) {
     lib_parameters->use_chat_info_database_ = true;
     lib_parameters->use_message_database_ = false;
     lib_parameters->use_secret_chats_ = false;
-    lib_parameters->enable_storage_optimizer_ = true;
 }
 
 void Client::init_proxy(Settings &settings) {
@@ -64,11 +64,12 @@ void Client::init_proxy(Settings &settings) {
                 settings.proxy_username(),
                 settings.proxy_password()
         );
-        set_proxy = td_api::make_object<td_api::addProxy>(
+        auto proxy_server = td_api::make_object<td_api::proxy>(
                 settings.proxy_address(),
                 settings.proxy_port(),
-                true,
                 td_api::move_object_as<td_api::ProxyType>(socks_proxy_type));
+        set_proxy = td_api::make_object<td_api::addProxy>(
+                std::move(proxy_server), true, "");
     } else {
         set_proxy = td_api::make_object<td_api::disableProxy>();
     }
@@ -185,14 +186,9 @@ void Client::on_authorization_state_update(td_api::object_ptr<td_api::Authorizat
             is_ready_.set_value(true);
             logger->info("TG client authorization ready");
             break;
-        case td_api::authorizationStateWaitEncryptionKey::ID:
-            send_query(td_api::make_object<td_api::checkDatabaseEncryptionKey>(),
-                       create_authentication_query_handler());
-            send_query(std::move(set_proxy), create_authentication_query_handler());
-            break;
         case td_api::authorizationStateWaitTdlibParameters::ID: {
-            send_query(td_api::make_object<td_api::setTdlibParameters>(
-                    std::move(lib_parameters)), create_authentication_query_handler());
+            send_query(std::move(lib_parameters), create_authentication_query_handler());
+            send_query(std::move(set_proxy), create_authentication_query_handler());
             break;
         }
         default:

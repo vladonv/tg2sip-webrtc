@@ -107,6 +107,7 @@ namespace state_machine::actions {
             auto result = tg_client.send_query_async(td_api::make_object<td_api::discardCall>(
                     ctx.tg_call_id, /* call_id_ */
                     false, /* is_disconnected_ */
+                    "", /* invite_link_ */
                     0, /* duration_ */
                     false, /* is_video_ */
                     ctx.tg_call_id /*connection_id */
@@ -176,9 +177,9 @@ namespace state_machine::actions {
             headers.push_back(header);
         }
 
-        if (!user->username_.empty()) {
+        if (user->usernames_ && !user->usernames_->editable_username_.empty()) {
             header.hName = "X-TG-Username";
-            header.hValue = user->username_;
+            header.hValue = user->usernames_->editable_username_;
             headers.push_back(header);
         }
 
@@ -472,10 +473,13 @@ namespace state_machine::actions {
             return;
         }
 
-        auto contact = td_api::make_object<td_api::contact>();
+        auto contact = td_api::make_object<td_api::importedContact>();
         contact->phone_number_ = ctx_->ext_phone;
+        // first_name_ must be non-empty; the actual name isn't known yet -
+        // that's what this lookup is for - so use the phone number itself.
+        contact->first_name_ = ctx_->ext_phone;
 
-        auto contacts = std::vector<td_api::object_ptr<td_api::contact>>();
+        auto contacts = std::vector<td_api::object_ptr<td_api::importedContact>>();
         contacts.emplace_back(std::move(contact));
 
         auto response = tg_client_->send_query_async(
@@ -802,8 +806,8 @@ void Gateway::load_cache() {
             return;
         }
 
-        if (!user->username_.empty()) {
-            cache_.username_cache.emplace(user->username_, user->id_);
+        if (user->usernames_ && !user->usernames_->editable_username_.empty()) {
+            cache_.username_cache.emplace(user->usernames_->editable_username_, user->id_);
         }
 
         if (!user->phone_number_.empty()) {
