@@ -175,6 +175,9 @@ target_include_directories(tg2sip-webrtc PRIVATE
         ${TGCALLS_ROOT}
         include)
 
+target_link_directories(tg2sip-webrtc PRIVATE
+        ${PJSIP_LIBRARY_DIRS})
+
 target_link_libraries(tg2sip-webrtc PRIVATE
         ${PJSIP_LIBRARIES}
         ${TGCALLS_LINK_LIBRARIES}
