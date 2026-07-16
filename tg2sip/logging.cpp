@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017-2018 infactum (infactum@gmail.com)
+ * Copyright (C) 2026 Vlad Vorobyev (vlad.vorobev@gmail.com)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

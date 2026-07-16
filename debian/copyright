@@ -12,12 +12,6 @@ Copyright: 2017-2018, infactum <infactum@gmail.com>
  2026, Vlad Vorobyev
 License: GPL-2+
 
-Files: libtgvoip/*
-Copyright: 2017-2018, Grishka
-License: Unlicense
-Comment: Dead code as of the tgcalls migration - no longer built (see
- CMakeLists.txt), kept in-tree pending removal.
-
 Files: include/boost/sml.hpp
 Copyright: 2016-2018, Kris Jusiak <kris at jusiak dot net>
 License: BSL-1.0
@@ -39,13 +33,6 @@ License: GPL-2+
  .
  On Debian systems, the complete text of the GNU General Public License
  version 2 can be found in "/usr/share/common-licenses/GPL-2".
-
-License: Unlicense
- This is free and unencumbered software released into the public domain.
- .
- On Debian systems, the complete text of the Unlicense can be found in
- "/usr/share/common-licenses/Unlicense" (unlicense-text package) or at
- https://unlicense.org/.
 
 License: BSL-1.0
  Boost Software License - Version 1.0 - August 17th, 2003
