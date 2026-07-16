@@ -1,0 +1,2 @@
+#!/usr/bin/dh-exec
+settings.ini => etc/tg2sip-webrtc/config.ini

@@ -1,0 +1,54 @@
+[Unit]
+Description=tg2sip-webrtc - Telegram <-> SIP voice gateway
+Documentation=https://github.com/vladonv/tg2sip-webrtc
+After=network-online.target
+Wants=network-online.target
+# gen_db (packaged alongside) must be run once, as the tg2sip-webrtc user,
+# to create /var/lib/tg2sip-webrtc/db.sqlite via an interactive Telegram
+# login (phone/SMS/2FA) before this service can start successfully.
+ConditionPathExists=/var/lib/tg2sip-webrtc/db.sqlite
+
+[Service]
+Type=simple
+User=tg2sip-webrtc
+Group=tg2sip-webrtc
+WorkingDirectory=/var/lib/tg2sip-webrtc
+ExecStart=/usr/bin/tg2sip-webrtc
+Restart=on-failure
+RestartSec=5
+
+# The default SIP port (5060, see /etc/tg2sip-webrtc/config.ini) is >= 1024,
+# so it's unprivileged and needs no extra capability to bind as this
+# non-root user. If the port is ever reconfigured below 1024, add
+# AmbientCapabilities=CAP_NET_BIND_SERVICE and put the same in
+# CapabilityBoundingSet= below (which otherwise stays empty - drop
+# everything).
+CapabilityBoundingSet=
+
+# Hardening. Unlike monast (read-only), this daemon needs to write its
+# TDLib session database and its own log files - both land in
+# WorkingDirectory (see tg2sip/logging.cpp's relative "tg2sip.log" /
+# "tdlib.log" paths and settings.ini's [telegram] database_folder=, which
+# defaults to cwd when empty), so ProtectSystem=strict is paired with an
+# explicit ReadWritePaths instead of ProtectHome-style full lockdown.
+# PJSIP is built with --disable-sound (SIP/RTP is over the network, no
+# local audio hardware involved) so PrivateDevices is safe to keep on.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/tg2sip-webrtc
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RemoveIPC=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

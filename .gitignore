@@ -5,3 +5,13 @@ CMakeFiles/
 *.o
 *.a
 *.log
+
+# dpkg-buildpackage output
+debian/build-deps/
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/*.substvars
+debian/*.debhelper.log
+debian/tg2sip-webrtc/
+obj-*/

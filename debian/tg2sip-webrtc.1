@@ -1,0 +1,41 @@
+.TH TG2SIP-WEBRTC 1 "July 2026" "tg2sip-webrtc" "User Commands"
+.SH NAME
+tg2sip-webrtc \- Telegram <-> SIP voice gateway using tgcalls (WebRTC)
+.SH SYNOPSIS
+.B tg2sip-webrtc
+.RI [ config-file ]
+.SH DESCRIPTION
+.B tg2sip-webrtc
+bridges Telegram calls, via TDLib and tgcalls (WebRTC), to a SIP PBX via
+PJSIP, in both directions: incoming Telegram calls can be forwarded to a
+SIP extension, and SIP can place outgoing calls to Telegram contacts.
+.PP
+Before the daemon can log in and run unattended, a TDLib session must
+exist. Create one with
+.BR gen_db (1).
+.SH CONFIGURATION
+The configuration file is resolved in this order:
+.IP \(bu
+an explicit path given as the first command-line argument;
+.IP \(bu
+.I /etc/tg2sip-webrtc/config.ini
+if it exists;
+.IP \(bu
+.I settings.ini
+in the current working directory (development fallback).
+.PP
+See the comments in
+.I /etc/tg2sip-webrtc/config.ini
+for all available settings.
+.SH FILES
+.TP
+.I /etc/tg2sip-webrtc/config.ini
+Configuration file (a dpkg conffile).
+.TP
+.I /var/lib/tg2sip-webrtc/db.sqlite
+TDLib session database, created by
+.BR gen_db (1).
+.SH SEE ALSO
+.BR gen_db (1)
+.PP
+.I https://github.com/vladonv/tg2sip-webrtc

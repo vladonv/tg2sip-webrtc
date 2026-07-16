@@ -1,0 +1,64 @@
+Source: tg2sip-webrtc
+Section: comm
+Priority: optional
+Maintainer: Vlad Vorobyev <vlad.vorobev@gmail.com>
+Build-Depends: debhelper-compat (= 13),
+ dh-exec,
+ git,
+ ca-certificates,
+ cmake,
+ ninja-build,
+ pkg-config,
+ gperf,
+ yasm,
+ nasm,
+ libjpeg-dev,
+ libopus-dev,
+ libasound2-dev,
+ libpulse-dev,
+ libx11-dev,
+ libxext-dev,
+ libxdamage-dev,
+ libxfixes-dev,
+ libxrender-dev,
+ libxrandr-dev,
+ libxtst-dev,
+ libxcomposite-dev,
+ libevent-dev,
+ libavcodec-dev,
+ libavformat-dev,
+ libavutil-dev,
+ libswscale-dev,
+ libswresample-dev,
+ libpipewire-0.3-dev,
+ libabsl-dev,
+ libvpx-dev,
+ libssl-dev,
+ zlib1g-dev,
+ libspdlog-dev,
+ libfmt-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/vladonv/tg2sip-webrtc
+Rules-Requires-Root: no
+
+Package: tg2sip-webrtc
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, adduser
+Description: Telegram <-> SIP voice gateway using tgcalls (WebRTC)
+ tg2sip-webrtc bridges Telegram calls (via TDLib + tgcalls/WebRTC) to a SIP
+ PBX (via PJSIP) in both directions: incoming Telegram calls can be
+ forwarded to a SIP extension, and SIP can place outgoing calls to
+ Telegram contacts.
+ .
+ This is a fork of the archived Infactum/tg2sip, replacing the defunct
+ libtgvoip P2P calling protocol with tgcalls (WebRTC) and bumping TDLib to
+ a version current Telegram servers still accept.
+ .
+ This package installs the tg2sip-webrtc gateway daemon (with a systemd
+ service) and the gen_db helper, used once to interactively create the
+ TDLib login session (phone number, SMS code, 2FA password) before the
+ daemon can run unattended.
+ .
+ PJSIP and TDLib are not packaged in Debian and are built from source at
+ package build time; both link statically, so this package pulls in no
+ runtime dependency on them.

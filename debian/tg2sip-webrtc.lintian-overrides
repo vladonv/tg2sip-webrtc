@@ -1,0 +1,6 @@
+# PJSIP vendors its own libsrtp copy (third_party/srtp under the PJSIP
+# source tree) and this package links PJSIP entirely statically, built from
+# source with no packaging changes to PJSIP itself. PJSIP has no supported
+# build-time switch to link Debian's separately-packaged libsrtp2 instead -
+# revisit this override if that ever changes upstream.
+tg2sip-webrtc: embedded-library srtp [usr/bin/tg2sip-webrtc]

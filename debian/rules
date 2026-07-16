@@ -1,0 +1,72 @@
+#!/usr/bin/make -f
+
+# PJSIP and TDLib aren't packaged in Debian. Building them into /usr/local
+# during the package build would litter a packaged distro with files dpkg
+# doesn't track (see build-debian.sh / project notes on the reasoning) -
+# instead they're built into a private prefix under debian/build-deps and
+# found via PKG_CONFIG_PATH (PJSIP, via pkg-config) / CMAKE_PREFIX_PATH
+# (TDLib, via find_package(Td)). Both link statically into the final
+# binaries, so nothing needs to survive past the build.
+DEPS_PREFIX := $(CURDIR)/debian/build-deps/local
+export PKG_CONFIG_PATH := $(DEPS_PREFIX)/lib/pkgconfig
+PJSIP_JOBS := $(shell nproc)
+# TDLib/tg_owt compile units are heavier per-TU than PJSIP's; cap
+# concurrency to stay safe on small (~8GB) build boxes instead of assuming
+# nproc-wide is fine (matches build-debian.sh's BUILD_JOBS default - an
+# uncapped -j$(nproc) TDLib build got its linker OOM-killed on a 6-core/8GB
+# box the one time this was tried).
+BUILD_JOBS := 4
+
+%:
+	dh $@ --buildsystem=cmake+ninja
+
+override_dh_auto_configure:
+	# Selective submodule init - see build-debian.sh for why each of these
+	# is/isn't needed (the 'cmake' one is desktop-app/cmake_helpers, not
+	# the build tool; libvpx/libyuv are needed as source trees for tg_owt's
+	# CMake target definitions even though libvpx-dev ends up linked
+	# instead; pybind11 is genuinely unused).
+	git submodule update --init third_party/tgcalls
+	cd third_party/tgcalls && \
+		git submodule update --init cmake && \
+		git submodule update --init --depth 1 \
+			tgcalls/third_party/webrtc/src/third_party/libyuv \
+			tgcalls/third_party/webrtc/src/third_party/libvpx/source/libvpx
+
+	mkdir -p debian/build-deps
+	test -d debian/build-deps/pjproject || \
+		git clone --depth 1 --branch 2.9 https://github.com/pjsip/pjproject.git debian/build-deps/pjproject
+	cp buildenv/config_site.h debian/build-deps/pjproject/pjlib/include/pj/
+	cd debian/build-deps/pjproject && \
+		./configure --prefix=$(DEPS_PREFIX) --disable-sound CFLAGS="-O3 -DNDEBUG -fPIC" && \
+		$(MAKE) dep && \
+		$(MAKE) -j$(PJSIP_JOBS) && \
+		$(MAKE) install
+
+	# TDLib master, not the repo's pinned 1.7.10 commit - the old pin is
+	# rejected by current Telegram servers with UPDATE_APP_TO_LOGIN.
+	test -d debian/build-deps/td || \
+		git clone https://github.com/tdlib/td.git debian/build-deps/td
+	mkdir -p debian/build-deps/td/build
+	cd debian/build-deps/td/build && \
+		cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$(DEPS_PREFIX) -G Ninja .. && \
+		cmake --build . --target install -j$(BUILD_JOBS)
+
+	dh_auto_configure -- -DCMAKE_PREFIX_PATH=$(DEPS_PREFIX)
+
+override_dh_auto_build:
+	dh_auto_build -- -j$(BUILD_JOBS)
+
+override_dh_auto_test:
+	# No CMake enable_testing()/add_test() in this project, so the Ninja
+	# generator has no "test" target at all (unlike the Makefile generator,
+	# which always emits one via CTest even with zero registered tests) -
+	# dh_auto_test's default "ninja test" fails outright with "unknown
+	# target 'test'" rather than just finding nothing to run.
+
+override_dh_installsystemd:
+	dh_installsystemd --name=tg2sip-webrtc
+
+override_dh_clean:
+	dh_clean
+	rm -rf debian/build-deps

@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+
+# /etc/tg2sip-webrtc/config.ini is a real conffile; dpkg removes it on purge
+# on its own, no maintscript code needed for that.
+
+# Intentionally not removing the "tg2sip-webrtc" system user on remove/purge:
+# Debian convention is to leave system users in place to avoid uid reuse
+# surprises on files that may still reference it (see monast-daemon's
+# postrm for the same reasoning).
+
+case "$1" in
+    purge)
+        # /var/lib/tg2sip-webrtc holds the TDLib session (db.sqlite - a live
+        # logged-in Telegram session) and log files; only wipe it on a real
+        # purge, not on a plain remove that might be followed by reinstall.
+        rm -rf /var/lib/tg2sip-webrtc
+    ;;
+esac
+
+#DEBHELPER#
+
+exit 0

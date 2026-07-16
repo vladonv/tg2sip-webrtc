@@ -1,0 +1,10 @@
+tg2sip-webrtc (0.1.0) unstable; urgency=medium
+
+  * Initial Debian packaging. Builds PJSIP 2.9 and TDLib (master) from
+    source into a private prefix at package-build time (neither is
+    packaged in Debian); both link statically, so the resulting
+    tg2sip-webrtc/gen_db binaries carry no runtime dependency on them.
+    Ships a systemd service (tg2sip-webrtc.service), a dedicated system
+    user, and a config template at /etc/tg2sip-webrtc/config.ini.
+
+ -- Vlad Vorobyev <vlad.vorobev@gmail.com>  Wed, 15 Jul 2026 16:07:21 +0300

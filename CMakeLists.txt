@@ -74,7 +74,14 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(TG_OWT_USE_PIPEWIRE OFF CACHE BOOL "" FORCE)
 set(DESKTOP_APP_USE_PACKAGED ON)
 
-add_subdirectory(${TGCALLS_ROOT}/third_party/webrtc third_party_tg_owt)
+# EXCLUDE_FROM_ALL suppresses tg_owt's own install() rules (it's normally a
+# standalone installable library - without this, `cmake --install` ships its
+# full public header tree plus a duplicate libtg_owt.a under /usr/include and
+# /usr/lib, ~40MB of dead weight nobody links against post-install since it's
+# already folded into the tg2sip-webrtc binary via --whole-archive at build
+# time). tg_owt itself still gets built normally since tg2sip-webrtc depends
+# on it - EXCLUDE_FROM_ALL only opts it out of the default all/install sets.
+add_subdirectory(${TGCALLS_ROOT}/third_party/webrtc third_party_tg_owt EXCLUDE_FROM_ALL)
 
 add_library(external_webrtc INTERFACE)
 target_link_libraries(external_webrtc INTERFACE tg_owt)
@@ -200,3 +207,5 @@ target_include_directories(gen_db PRIVATE
 
 target_link_libraries(gen_db PRIVATE
         Td::TdStatic)
+
+install(TARGETS tg2sip-webrtc gen_db RUNTIME DESTINATION bin)
