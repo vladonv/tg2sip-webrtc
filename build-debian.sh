@@ -15,7 +15,7 @@
 # Usage: run as root, from anywhere inside a clone of this repo:
 #   ./build-debian.sh
 #
-# Produces build/tg2sip-webrtc and build/gen_db.
+# Produces build/tg2sip-webrtc and build/tg2sip-gendb.
 
 set -euo pipefail
 
@@ -115,7 +115,7 @@ echo "==> [6/6] Building tg2sip-webrtc"
 cmake --build build -j"$BUILD_JOBS"
 
 echo "==> Done. Binaries:"
-ls -la "$REPO_ROOT/build/tg2sip-webrtc" "$REPO_ROOT/build/gen_db"
+ls -la "$REPO_ROOT/build/tg2sip-webrtc" "$REPO_ROOT/build/tg2sip-gendb"
 echo "==> Note: these are unstripped debug builds (intentional - see repo notes"
 echo "    on the iOS-callee silent-audio bug). Run 'strip' on a separate copy"
 echo "    before shipping a production/deployment artifact."

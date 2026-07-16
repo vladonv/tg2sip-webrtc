@@ -29,7 +29,7 @@ Your SIP PBX should be comaptible with `L16@48000` or `OPUS@48000` voice codec.
    2. `/etc/tg2sip-webrtc/tg2sip.conf` (recommended for a real install - `sudo mkdir -p /etc/tg2sip-webrtc && sudo cp build/tg2sip.conf.sample /etc/tg2sip-webrtc/tg2sip.conf`)
    3. `tg2sip.conf` in the current working directory (dev/in-tree convenience fallback - `cp build/tg2sip.conf.sample build/tg2sip.conf`, then run from `build/`)
 3. Obtain `api_id` and `api_hash` tokens from [this](https://my.telegram.org) page and put them in your config file.
-4. Login into telegram with `gen_db` app (same config-resolution rule as above)
+4. Login into telegram with `tg2sip-gendb` app (same config-resolution rule as above)
 5. Set SIP server settings in your config file
 6. Run `tg2sip-webrtc`
 

@@ -3,7 +3,7 @@ Description=tg2sip-webrtc - Telegram <-> SIP voice gateway
 Documentation=https://github.com/vladonv/tg2sip-webrtc
 After=network-online.target
 Wants=network-online.target
-# gen_db (packaged alongside) must be run once, as the tg2sip-webrtc user,
+# tg2sip-gendb (packaged alongside) must be run once, as the tg2sip-webrtc user,
 # to create /var/lib/tg2sip-webrtc/db.sqlite via an interactive Telegram
 # login (phone/SMS/2FA) before this service can start successfully.
 ConditionPathExists=/var/lib/tg2sip-webrtc/db.sqlite

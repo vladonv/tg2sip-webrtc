@@ -195,17 +195,17 @@ target_link_libraries(tg2sip-webrtc PRIVATE
         ${CMAKE_DL_LIBS}
         Td::TdStatic)
 
-add_executable(gen_db
+add_executable(tg2sip-gendb
         tg2sip/gen_db.cpp
         tg2sip/settings.cpp
         tg2sip/settings.h
         tg2sip/utils.cpp
         tg2sip/utils.h)
 
-target_include_directories(gen_db PRIVATE
+target_include_directories(tg2sip-gendb PRIVATE
         include)
 
-target_link_libraries(gen_db PRIVATE
+target_link_libraries(tg2sip-gendb PRIVATE
         Td::TdStatic)
 
-install(TARGETS tg2sip-webrtc gen_db RUNTIME DESTINATION bin)
+install(TARGETS tg2sip-webrtc tg2sip-gendb RUNTIME DESTINATION bin)

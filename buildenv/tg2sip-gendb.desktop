@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name=gen_db
-Exec=gen_db
+Name=tg2sip-gendb
+Exec=tg2sip-gendb
 Comment=TG2SIP DB generator
 Terminal=true
 Type=Application

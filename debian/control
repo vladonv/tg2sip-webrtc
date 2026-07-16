@@ -55,9 +55,9 @@ Description: Telegram <-> SIP voice gateway using tgcalls (WebRTC)
  a version current Telegram servers still accept.
  .
  This package installs the tg2sip-webrtc gateway daemon (with a systemd
- service) and the gen_db helper, used once to interactively create the
- TDLib login session (phone number, SMS code, 2FA password) before the
- daemon can run unattended.
+ service) and the tg2sip-gendb helper, used once to interactively create
+ the TDLib login session (phone number, SMS code, 2FA password) before
+ the daemon can run unattended.
  .
  PJSIP and TDLib are not packaged in Debian and are built from source at
  package build time; both link statically, so this package pulls in no

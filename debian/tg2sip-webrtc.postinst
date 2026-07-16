@@ -14,7 +14,7 @@ case "$1" in
 
         # $TG2SIP_HOME itself is shipped as an empty dir (debian/*.dirs) so
         # dpkg owns its existence; just fix up ownership here. This is where
-        # gen_db's TDLib session (db.sqlite) and the daemon's own log files
+        # tg2sip-gendb's TDLib session (db.sqlite) and the daemon's own log files
         # (tg2sip.log/tdlib.log - see tg2sip/logging.cpp) land, since the
         # systemd unit's WorkingDirectory points here.
         chown "$TG2SIP_USER:$TG2SIP_USER" "$TG2SIP_HOME"
@@ -48,7 +48,7 @@ case "$1" in
         if [ ! -e "$TG2SIP_HOME/db.sqlite" ]; then
             echo "tg2sip-webrtc: no TDLib session yet. Fill in [telegram] api_id/api_hash"
             echo "in $TG2SIP_CONF, then run:"
-            echo "  sudo -u $TG2SIP_USER sh -c 'cd $TG2SIP_HOME && gen_db'"
+            echo "  sudo -u $TG2SIP_USER sh -c 'cd $TG2SIP_HOME && tg2sip-gendb'"
             echo "to log in (phone/SMS/2FA) before starting tg2sip-webrtc.service."
         fi
     ;;

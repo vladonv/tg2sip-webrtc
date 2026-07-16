@@ -23,8 +23,15 @@ tg2sip-webrtc (0.1.1) unstable; urgency=medium
     would risk triggering on a future upgrade. Verified: fresh install
     sets it, reinstalling the same version is a silent no-op, and a
     stale/hand-edited value gets corrected back on the next install.
+  * Rename the gen_db helper binary to tg2sip-gendb - the old name gave
+    no clue which package it belonged to or what it did. Renamed the
+    CMake executable target (source file tg2sip/gen_db.cpp is unchanged,
+    same as tg2sip-webrtc's own main.cpp), the man page
+    (debian/gen_db.1 -> debian/tg2sip-gendb.1), and every doc/packaging
+    reference (README, debian/control, postinst, the systemd unit,
+    buildenv/gen_db.desktop -> tg2sip-gendb.desktop).
 
- -- Vlad Vorobyev <vlad.vorobev@gmail.com>  Thu, 16 Jul 2026 13:04:20 +0300
+ -- Vlad Vorobyev <vlad.vorobev@gmail.com>  Thu, 16 Jul 2026 13:13:37 +0300
 
 tg2sip-webrtc (0.1.0) unstable; urgency=medium
 

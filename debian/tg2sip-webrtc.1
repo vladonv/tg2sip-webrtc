@@ -12,7 +12,7 @@ SIP extension, and SIP can place outgoing calls to Telegram contacts.
 .PP
 Before the daemon can log in and run unattended, a TDLib session must
 exist. Create one with
-.BR gen_db (1).
+.BR tg2sip-gendb (1).
 .SH CONFIGURATION
 The configuration file is resolved in this order:
 .IP \(bu
@@ -34,8 +34,8 @@ Configuration file (a dpkg conffile).
 .TP
 .I /var/lib/tg2sip-webrtc/db.sqlite
 TDLib session database, created by
-.BR gen_db (1).
+.BR tg2sip-gendb (1).
 .SH SEE ALSO
-.BR gen_db (1)
+.BR tg2sip-gendb (1)
 .PP
 .I https://github.com/vladonv/tg2sip-webrtc

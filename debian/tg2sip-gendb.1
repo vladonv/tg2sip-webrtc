@@ -1,11 +1,11 @@
-.TH GEN_DB 1 "July 2026" "tg2sip-webrtc" "User Commands"
+.TH TG2SIP-GENDB 1 "July 2026" "tg2sip-webrtc" "User Commands"
 .SH NAME
-gen_db \- interactively create the TDLib login session for tg2sip-webrtc
+tg2sip-gendb \- interactively create the TDLib login session for tg2sip-webrtc
 .SH SYNOPSIS
-.B gen_db
+.B tg2sip-gendb
 .RI [ config-file ]
 .SH DESCRIPTION
-.B gen_db
+.B tg2sip-gendb
 performs an interactive Telegram login (phone number, SMS code, and 2FA
 password if enabled) using the
 .B api_id
@@ -25,7 +25,7 @@ system user, before starting
 for the first time:
 .PP
 .RS
-sudo -u tg2sip-webrtc sh -c 'cd /var/lib/tg2sip-webrtc && gen_db'
+sudo -u tg2sip-webrtc sh -c 'cd /var/lib/tg2sip-webrtc && tg2sip-gendb'
 .RE
 .SH CONFIGURATION
 Uses the same configuration file resolution order as
