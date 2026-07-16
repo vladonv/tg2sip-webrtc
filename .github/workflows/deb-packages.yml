@@ -1,0 +1,137 @@
+name: Build and publish .deb packages
+
+# Builds + lints + publishes a GitHub Release with .deb packages for both
+# Debian 12 (bookworm) and 13 (trixie).
+#
+# Unlike monast (pure Python/PHP, Architecture: all, one shared build for
+# any Debian release), tg2sip-webrtc is compiled C++ against system
+# libraries (FFmpeg, abseil, spdlog, ...) whose SONAMEs/versions differ
+# between bookworm and trixie - dh_shlibdeps needs to run inside the
+# actual target release to compute correct ${shlibs:Depends}, so this
+# builds via a matrix of Debian's own container images rather than once
+# on ubuntu-latest, then a second job aggregates both legs' artifacts into
+# one release (avoids two matrix legs racing to `gh release create` the
+# same tag).
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - codename: bookworm
+            debian_release: "12"
+          - codename: trixie
+            debian_release: "13"
+    # Both matrix legs compute this from the same checked-out
+    # debian/changelog, so it's identical either way - GitHub Actions
+    # picks an arbitrary matrix leg's value for a matrix job's outputs,
+    # which is fine here since the two legs can never disagree.
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    container:
+      image: debian:${{ matrix.codename }}
+    # The full from-source PJSIP+TDLib+tgcalls/tg_owt build takes ~20-30
+    # minutes on a dedicated 6-core/8GB box (see project build notes) -
+    # give it real headroom on GitHub's shared runners rather than hitting
+    # the default 6h job timeout being the only backstop.
+    timeout-minutes: 90
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      # TDLib/tg_owt compile units are memory-heavy per translation unit;
+      # GitHub's standard runners (2 cores/7GB at the time of writing) are
+      # smaller than the 6-core/8-10GB boxes this was tuned against, which
+      # already needed BUILD_JOBS=4 instead of nproc to avoid an
+      # OOM-killed linker - go lower still here. See debian/rules.
+      BUILD_JOBS: "2"
+    steps:
+      - name: Check out repository
+        # debian:* images ship without git, so this uses actions/checkout's
+        # non-git (GitHub API tarball) fallback path automatically - no
+        # submodule content, but debian/rules' override_dh_auto_configure
+        # already lazily `git submodule update --init`s everything it needs
+        # once git is installed below, same as build-debian.sh's approach.
+        uses: actions/checkout@v7
+
+      - name: Install packaging tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential dpkg-dev devscripts lintian git ca-certificates
+
+      - name: Work around containerized-checkout ownership check
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install build dependencies (from debian/control)
+        run: apt-get build-dep -y .
+
+      - name: Build .deb packages
+        # BUILD_JOBS is already in this step's environment (job-level env:
+        # above) - debian/rules' `BUILD_JOBS ?= 4` picks it up automatically
+        # since GNU Make imports the process environment as variables.
+        run: dpkg-buildpackage -us -uc -b
+
+      - name: Lint built package
+        run: lintian ../tg2sip-webrtc_*.deb
+
+      - name: Read package version
+        id: version
+        run: echo "version=$(dpkg-parsechangelog -S Version)" >> "$GITHUB_OUTPUT"
+
+      - name: Rename artifacts with the Debian codename
+        # Same upstream version is intentionally built once per codename in
+        # this matrix - suffix every filename (including .changes/
+        # .buildinfo, not just the .debs) so the publish job below, which
+        # merges both legs' artifacts into one directory, never collides
+        # two identically-named files into one. The package's own internal
+        # Version: field is untouched; this is a CI-artifact-only naming
+        # convention.
+        run: |
+          mkdir -p dist
+          for f in ../tg2sip-webrtc_*.deb ../tg2sip-webrtc-dbgsym_*.deb ../tg2sip-webrtc_*.changes ../tg2sip-webrtc_*.buildinfo; do
+            ext="${f##*.}"
+            base="$(basename "$f" ".$ext")"
+            cp "$f" "dist/${base}+${{ matrix.codename }}.${ext}"
+          done
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: tg2sip-webrtc-${{ steps.version.outputs.version }}-${{ matrix.codename }}
+          path: dist/*
+
+  publish:
+    needs: build
+    # Manual workflow_dispatch runs build+lint+upload for testing without
+    # publishing a release; only a real push to master does.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts from both Debian releases
+        uses: actions/download-artifact@v7
+        with:
+          pattern: tg2sip-webrtc-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v${{ needs.build.outputs.version }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists, skipping (bump debian/changelog to publish a new one)."
+          else
+            gh release create "$tag" dist/* \
+              --title "$tag" \
+              --notes "Built from ${{ github.sha }} for Debian 12 (bookworm) and 13 (trixie). See debian/changelog for details."
+          fi

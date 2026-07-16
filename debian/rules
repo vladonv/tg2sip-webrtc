@@ -14,8 +14,9 @@ PJSIP_JOBS := $(shell nproc)
 # concurrency to stay safe on small (~8GB) build boxes instead of assuming
 # nproc-wide is fine (matches build-debian.sh's BUILD_JOBS default - an
 # uncapped -j$(nproc) TDLib build got its linker OOM-killed on a 6-core/8GB
-# box the one time this was tried).
-BUILD_JOBS := 4
+# box the one time this was tried). Overridable (BUILD_JOBS=2 make ...) for
+# even more memory-constrained environments like shared CI runners.
+BUILD_JOBS ?= 4
 
 %:
 	dh $@ --buildsystem=cmake+ninja
