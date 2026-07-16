@@ -32,10 +32,8 @@ jobs:
             debian_release: "12"
           - codename: trixie
             debian_release: "13"
-    # Both matrix legs compute this from the same checked-out
-    # debian/changelog, so it's identical either way - GitHub Actions
-    # picks an arbitrary matrix leg's value for a matrix job's outputs,
-    # which is fine here since the two legs can never disagree.
+    # See the "Read package version" step below for why this is safe to
+    # read from an arbitrarily-chosen matrix leg.
     outputs:
       version: ${{ steps.version.outputs.version }}
     container:
@@ -79,6 +77,32 @@ jobs:
       - name: Install build dependencies (from debian/control)
         run: apt-get build-dep -y .
 
+      - name: Read package version
+        # Captured *before* the distro-suffix step below, so this is the
+        # plain upstream version (e.g. "0.1.1") shared by every matrix leg -
+        # used for the release tag. GitHub Actions picks an arbitrary leg's
+        # value for a matrix job's outputs; fine here since this specific
+        # value is identical across legs (unlike the actual built package
+        # version, which differs per leg once suffixed).
+        id: version
+        run: echo "version=$(dpkg-parsechangelog -S Version)" >> "$GITHUB_OUTPUT"
+
+      - name: Set a distro-specific package version
+        # reprepro-style APT hosting (see vladonv/apt) keeps one shared pool
+        # across every codename it serves, keyed by (package, version,
+        # architecture) - two *different* builds (bookworm vs trixie, with
+        # genuinely different linked library versions) sharing the exact
+        # same Version: would collide there even though they're headed for
+        # separate codenames. `dch -l` is the standard Debian mechanism for
+        # exactly this ("give this build a distinguishing local version"),
+        # producing e.g. 0.1.1~bookworm1 - note the suffix passed here has
+        # no trailing digit: dch appends its own counter automatically, an
+        # explicit "1" here would produce "~bookworm11", not "~bookworm1".
+        env:
+          DEBFULLNAME: Vlad Vorobyev
+          DEBEMAIL: vlad.vorobev@gmail.com
+        run: dch --local "~${{ matrix.codename }}" --distribution unstable --force-distribution "CI build for ${{ matrix.codename }}."
+
       - name: Build .deb packages
         # BUILD_JOBS is already in this step's environment (job-level env:
         # above) - debian/rules' `BUILD_JOBS ?= 4` picks it up automatically
@@ -88,25 +112,14 @@ jobs:
       - name: Lint built package
         run: lintian ../tg2sip-webrtc_*.deb
 
-      - name: Read package version
-        id: version
-        run: echo "version=$(dpkg-parsechangelog -S Version)" >> "$GITHUB_OUTPUT"
-
-      - name: Rename artifacts with the Debian codename
-        # Same upstream version is intentionally built once per codename in
-        # this matrix - suffix every filename (including .changes/
-        # .buildinfo, not just the .debs) so the publish job below, which
-        # merges both legs' artifacts into one directory, never collides
-        # two identically-named files into one. The package's own internal
-        # Version: field is untouched; this is a CI-artifact-only naming
-        # convention.
+      - name: Collect build artifacts
+        # No manual filename disambiguation needed here (unlike an earlier
+        # version of this workflow) - dpkg-buildpackage itself names the
+        # output after the now distro-suffixed Version:, so bookworm's and
+        # trixie's files are already distinct on their own.
         run: |
           mkdir -p dist
-          for f in ../tg2sip-webrtc_*.deb ../tg2sip-webrtc-dbgsym_*.deb ../tg2sip-webrtc_*.changes ../tg2sip-webrtc_*.buildinfo; do
-            ext="${f##*.}"
-            base="$(basename "$f" ".$ext")"
-            cp "$f" "dist/${base}+${{ matrix.codename }}.${ext}"
-          done
+          cp ../tg2sip-webrtc_*.deb ../tg2sip-webrtc-dbgsym_*.deb ../tg2sip-webrtc_*.changes ../tg2sip-webrtc_*.buildinfo dist/
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
