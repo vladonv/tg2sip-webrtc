@@ -129,8 +129,14 @@ jobs:
           merge-multiple: true
 
       - name: Publish GitHub Release
+        # This job has no actions/checkout step (doesn't need the source,
+        # only the already-built artifacts downloaded above) - so `gh`
+        # can't infer the target repo from a local .git the usual way and
+        # needs --repo spelled out explicitly, or every `gh release ...`
+        # call fails with "failed to run git: fatal: not a git repository".
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           tag="v${{ needs.build.outputs.version }}"
           if gh release view "$tag" >/dev/null 2>&1; then
