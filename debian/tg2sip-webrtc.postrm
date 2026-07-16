@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-# /etc/tg2sip-webrtc/config.ini is a real conffile; dpkg removes it on purge
-# on its own, no maintscript code needed for that.
+# /etc/tg2sip-webrtc/tg2sip.conf is a real conffile; dpkg removes it
+# on purge on its own, no maintscript code needed for that.
 
 # Intentionally not removing the "tg2sip-webrtc" system user on remove/purge:
 # Debian convention is to leave system users in place to avoid uid reuse

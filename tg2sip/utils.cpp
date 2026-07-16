@@ -27,8 +27,8 @@ std::string resolve_config_path(int argc, char **argv) {
     if (argc > 1) {
         return argv[1];
     }
-    if (std::filesystem::exists("/etc/tg2sip-webrtc/config.ini")) {
-        return "/etc/tg2sip-webrtc/config.ini";
+    if (std::filesystem::exists("/etc/tg2sip-webrtc/tg2sip.conf")) {
+        return "/etc/tg2sip-webrtc/tg2sip.conf";
     }
-    return "settings.ini";
+    return "tg2sip.conf";
 }

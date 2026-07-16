@@ -3,6 +3,7 @@ set -e
 
 TG2SIP_USER=tg2sip-webrtc
 TG2SIP_HOME=/var/lib/tg2sip-webrtc
+TG2SIP_CONF=/etc/tg2sip-webrtc/tg2sip.conf
 
 case "$1" in
     configure)
@@ -19,15 +20,15 @@ case "$1" in
         chown "$TG2SIP_USER:$TG2SIP_USER" "$TG2SIP_HOME"
         chmod 750 "$TG2SIP_HOME"
 
-        # /etc/tg2sip-webrtc/config.ini is a real dpkg conffile - it holds
-        # the Telegram api_id/api_hash and (optionally) SIP credentials, so
-        # keep it non-world-readable.
-        chmod 640 /etc/tg2sip-webrtc/config.ini
-        chown "$TG2SIP_USER:$TG2SIP_USER" /etc/tg2sip-webrtc/config.ini
+        # $TG2SIP_CONF is a real dpkg conffile - it holds the Telegram
+        # api_id/api_hash and (optionally) SIP credentials, so keep it
+        # non-world-readable.
+        chmod 640 "$TG2SIP_CONF"
+        chown "$TG2SIP_USER:$TG2SIP_USER" "$TG2SIP_CONF"
 
         if [ ! -e "$TG2SIP_HOME/db.sqlite" ]; then
             echo "tg2sip-webrtc: no TDLib session yet. Fill in [telegram] api_id/api_hash"
-            echo "in /etc/tg2sip-webrtc/config.ini, then run:"
+            echo "in $TG2SIP_CONF, then run:"
             echo "  sudo -u $TG2SIP_USER sh -c 'cd $TG2SIP_HOME && gen_db'"
             echo "to log in (phone/SMS/2FA) before starting tg2sip-webrtc.service."
         fi

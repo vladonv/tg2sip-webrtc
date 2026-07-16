@@ -25,9 +25,9 @@
 bool is_digits(const std::string &str);
 
 // Resolves the config file path: an explicit argv[1] wins, otherwise prefer
-// the system-wide install location, falling back to a local settings.ini for
-// dev/in-tree runs (build/ has one copied in by CMake as config.ini.sample -
-// rename or pass it explicitly).
+// the system-wide install location, falling back to a local
+// tg2sip.conf for dev/in-tree runs (build/ has one copied in by
+// CMake as tg2sip.conf.sample - rename or pass it explicitly).
 std::string resolve_config_path(int argc, char **argv);
 
 template<class ToT, class FromT>

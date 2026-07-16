@@ -1,3 +1,22 @@
+tg2sip-webrtc (0.1.1) unstable; urgency=medium
+
+  * Rename the config file, everywhere it's read or shipped, from the
+    original settings.ini/config.ini naming to tg2sip.conf - .ini reads as
+    a Windows-ism, .conf matches normal Debian daemon convention (see e.g.
+    nginx.conf, apache2.conf for the same directory/filename pattern):
+    - The installed system config is now /etc/tg2sip-webrtc/tg2sip.conf
+      (was /etc/tg2sip-webrtc/config.ini).
+    - The tracked source template is now tg2sip.conf at the repo root
+      (was settings.ini), and the build-generated, never-clobbered-in-
+      place copy CMake drops next to the binary is now
+      tg2sip.conf.sample (was config.ini.sample).
+    - The dev/in-tree cwd fallback resolve_config_path() falls back to is
+      now tg2sip.conf (was settings.ini).
+    Updated every doc/packaging reference accordingly (README,
+    postinst/postrm, the systemd unit, both man pages).
+
+ -- Vlad Vorobyev <vlad.vorobev@gmail.com>  Thu, 16 Jul 2026 11:56:09 +0300
+
 tg2sip-webrtc (0.1.0) unstable; urgency=medium
 
   * Initial Debian packaging. Builds PJSIP 2.9 and TDLib (master) from

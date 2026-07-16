@@ -171,8 +171,8 @@ add_executable(tg2sip-webrtc
 add_custom_command(
         TARGET tg2sip-webrtc PRE_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_SOURCE_DIR}/settings.ini
-        $<TARGET_FILE_DIR:tg2sip-webrtc>/config.ini.sample)
+        ${CMAKE_SOURCE_DIR}/tg2sip.conf
+        $<TARGET_FILE_DIR:tg2sip-webrtc>/tg2sip.conf.sample)
 
 target_include_directories(tg2sip-webrtc PRIVATE
         ${PJSIP_INCLUDE_DIRS}
