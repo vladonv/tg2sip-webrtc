@@ -54,22 +54,27 @@ jobs:
       # OOM-killed linker - go lower still here. See debian/rules.
       BUILD_JOBS: "2"
     steps:
-      - name: Check out repository
-        # debian:* images ship without git, so this uses actions/checkout's
-        # non-git (GitHub API tarball) fallback path automatically - no
-        # submodule content, but debian/rules' override_dh_auto_configure
-        # already lazily `git submodule update --init`s everything it needs
-        # once git is installed below, same as build-debian.sh's approach.
-        uses: actions/checkout@v7
-
-      - name: Install packaging tools
+      # debian:* images ship without git. actions/checkout falls back to a
+      # non-git GitHub-API tarball download when git is missing, which
+      # leaves $GITHUB_WORKSPACE with no .git directory at all - breaking
+      # every git command debian/rules' override_dh_auto_configure runs
+      # later (git submodule update --init third_party/tgcalls) with
+      # "fatal: not a git repository", regardless of installing git
+      # afterwards. git has to be present *before* checkout runs so
+      # checkout does a real git clone instead.
+      - name: Install git (needed before checkout, for real - see comment)
         run: |
           apt-get update
-          apt-get install -y --no-install-recommends \
-            build-essential dpkg-dev devscripts lintian git ca-certificates
+          apt-get install -y --no-install-recommends git ca-certificates
+
+      - name: Check out repository
+        uses: actions/checkout@v7
 
       - name: Work around containerized-checkout ownership check
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Install remaining packaging tools
+        run: apt-get install -y --no-install-recommends build-essential dpkg-dev devscripts lintian
 
       - name: Install build dependencies (from debian/control)
         run: apt-get build-dep -y .
