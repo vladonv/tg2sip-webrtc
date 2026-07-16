@@ -14,8 +14,17 @@ tg2sip-webrtc (0.1.1) unstable; urgency=medium
       now tg2sip.conf (was settings.ini).
     Updated every doc/packaging reference accordingly (README,
     postinst/postrm, the systemd unit, both man pages).
+  * postinst now keeps [telegram] application_version in tg2sip.conf in
+    sync with the installed package version (Telegram's API only uses it
+    as an informational client-version string, so letting it drift is
+    closer to a bug than a feature). Scoped narrowly - touches only that
+    one key via dpkg-query -W + sed, and is a no-op if the value already
+    matches, to avoid the "conffile modified?" prompt a broader rewrite
+    would risk triggering on a future upgrade. Verified: fresh install
+    sets it, reinstalling the same version is a silent no-op, and a
+    stale/hand-edited value gets corrected back on the next install.
 
- -- Vlad Vorobyev <vlad.vorobev@gmail.com>  Thu, 16 Jul 2026 11:56:09 +0300
+ -- Vlad Vorobyev <vlad.vorobev@gmail.com>  Thu, 16 Jul 2026 13:04:20 +0300
 
 tg2sip-webrtc (0.1.0) unstable; urgency=medium
 

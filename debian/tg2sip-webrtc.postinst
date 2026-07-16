@@ -26,6 +26,25 @@ case "$1" in
         chmod 640 "$TG2SIP_CONF"
         chown "$TG2SIP_USER:$TG2SIP_USER" "$TG2SIP_CONF"
 
+        # Keep [telegram] application_version in sync with the installed
+        # package version. Telegram's API only uses this as an informational
+        # client-version string (like a User-Agent) - there's no legitimate
+        # reason for it to drift from what's actually running, so this is
+        # closer to a correctness fix than a "modify the user's conffile"
+        # judgment call. Kept deliberately narrow (touches only this one
+        # key, and is a no-op if the value already matches) to avoid the
+        # usual downside of maintainer scripts rewriting conffiles - dpkg
+        # comparing this file against its shipped checksum on a future
+        # upgrade and wrongly prompting "conffile modified?".
+        pkg_version="$(dpkg-query -W -f='${Version}' tg2sip-webrtc 2>/dev/null || true)"
+        if [ -n "$pkg_version" ]; then
+            current_version="$(sed -n 's/^;\?application_version=//p' "$TG2SIP_CONF" | head -1)"
+            if [ "$current_version" != "$pkg_version" ]; then
+                sed -i "s/^;\?application_version=.*/application_version=$pkg_version/" "$TG2SIP_CONF"
+                echo "tg2sip-webrtc: updated application_version to $pkg_version in $TG2SIP_CONF"
+            fi
+        fi
+
         if [ ! -e "$TG2SIP_HOME/db.sqlite" ]; then
             echo "tg2sip-webrtc: no TDLib session yet. Fill in [telegram] api_id/api_hash"
             echo "in $TG2SIP_CONF, then run:"
