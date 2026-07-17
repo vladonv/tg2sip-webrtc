@@ -29,7 +29,7 @@ namespace {
 
 // ---- SoftwareAudioInput (SIP -> tgcalls) ----
 
-SoftwareAudioInput::SoftwareAudioInput(RingBuffer &mic_buffer) : mic_buffer_(mic_buffer) {
+SoftwareAudioInput::SoftwareAudioInput(std::shared_ptr<RingBuffer> mic_buffer) : mic_buffer_(std::move(mic_buffer)) {
     pj_pool_ = pjsua_pool_create("voip-input%p", 2048, 512);
     media_port_ = PJ_POOL_ZALLOC_T(pj_pool_, pjmedia_port);
 
@@ -66,7 +66,7 @@ pj_status_t SoftwareAudioInput::PutFrameCallback(pjmedia_port *port, pjmedia_fra
         return PJ_SUCCESS;
     }
 
-    input->mic_buffer_.push(static_cast<const int16_t *>(frame->buf), frame->size / sizeof(int16_t));
+    input->mic_buffer_->push(static_cast<const int16_t *>(frame->buf), frame->size / sizeof(int16_t));
 
     return PJ_SUCCESS;
 }
@@ -79,7 +79,7 @@ pj_status_t SoftwareAudioInput::GetFrameCallback(pjmedia_port *port, pjmedia_fra
 
 // ---- SoftwareAudioOutput (tgcalls -> SIP) ----
 
-SoftwareAudioOutput::SoftwareAudioOutput(RingBuffer &playout_buffer) : playout_buffer_(playout_buffer) {
+SoftwareAudioOutput::SoftwareAudioOutput(std::shared_ptr<RingBuffer> playout_buffer) : playout_buffer_(std::move(playout_buffer)) {
     pj_pool_ = pjsua_pool_create("voip-output%p", 2048, 512);
     media_port_ = PJ_POOL_ZALLOC_T(pj_pool_, pjmedia_port);
 
@@ -121,7 +121,7 @@ pj_status_t SoftwareAudioOutput::GetFrameCallback(pjmedia_port *port, pjmedia_fr
         return PJ_SUCCESS;
     }
 
-    output->playout_buffer_.pop(static_cast<int16_t *>(frame->buf), SAMPLES_PER_FRAME);
+    output->playout_buffer_->pop(static_cast<int16_t *>(frame->buf), SAMPLES_PER_FRAME);
     frame->type = PJMEDIA_FRAME_TYPE_AUDIO;
     frame->size = SAMPLES_PER_FRAME * sizeof(int16_t);
 
@@ -147,12 +147,12 @@ bool TgCallsRenderer::Render(const tgcalls::AudioFrame &frame) {
                                    n, frame.num_samples, max_abs.load(std::memory_order_relaxed));
     }
 
-    playout_buffer_.push(frame.audio_samples, frame.num_samples);
+    playout_buffer_->push(frame.audio_samples, frame.num_samples);
     return true;
 }
 
 tgcalls::AudioFrame TgCallsRecorder::Record() {
-    mic_buffer_.pop(scratch_, SAMPLES_PER_FRAME);
+    mic_buffer_->pop(scratch_, SAMPLES_PER_FRAME);
 
     tgcalls::AudioFrame frame{};
     frame.audio_samples = scratch_;

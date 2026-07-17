@@ -90,8 +90,21 @@ namespace voip {
     private:
         static constexpr size_t RING_BUFFER_CAPACITY = 48000; // 1s @ 48kHz mono
 
-        RingBuffer mic_buffer_{RING_BUFFER_CAPACITY};
-        RingBuffer playout_buffer_{RING_BUFFER_CAPACITY};
+        // shared_ptr, not a plain member: tgcalls::ThreadLocalObject's
+        // destructor (used internally by Instance/Manager/MediaManager) only
+        // posts an async destroy task to its owning thread and returns
+        // immediately - it does not block until that thread actually runs
+        // it. So by the time instance_.reset() returns in Stop() below,
+        // tgcalls' own recording thread (still holding shared_ptr<TgCallsRecorder>
+        // from Descriptor::createAudioDeviceModule) can still be mid-Record()
+        // for a while after TgCallsController itself is destroyed. Keeping
+        // the buffers as shared_ptr - referenced by Renderer/Recorder the
+        // same way - means they outlive TgCallsController if tgcalls hasn't
+        // finished tearing down yet, instead of Record()/Render() reading
+        // through a dangling reference (confirmed via gdb: SIGFPE inside
+        // RingBuffer::pop's `% capacity_` reading freed memory).
+        std::shared_ptr<RingBuffer> mic_buffer_{std::make_shared<RingBuffer>(RING_BUFFER_CAPACITY)};
+        std::shared_ptr<RingBuffer> playout_buffer_{std::make_shared<RingBuffer>(RING_BUFFER_CAPACITY)};
 
         SoftwareAudioInput audio_input_{mic_buffer_};
         SoftwareAudioOutput audio_output_{playout_buffer_};

@@ -18,6 +18,8 @@
 #ifndef TG2SIP_VOIP_AUDIO_BRIDGE_H
 #define TG2SIP_VOIP_AUDIO_BRIDGE_H
 
+#include <memory>
+
 #include <pjsua2.hpp>
 
 #include "tgcalls/FakeAudioDeviceModule.h"
@@ -36,7 +38,7 @@ namespace voip {
     // TgCallsRecorder to hand to tgcalls as "microphone" input.
     class SoftwareAudioInput : public pj::AudioMedia {
     public:
-        explicit SoftwareAudioInput(RingBuffer &mic_buffer);
+        explicit SoftwareAudioInput(std::shared_ptr<RingBuffer> mic_buffer);
 
         ~SoftwareAudioInput() override;
 
@@ -49,7 +51,7 @@ namespace voip {
 
         static pj_status_t GetFrameCallback(pjmedia_port *port, pjmedia_frame *frame);
 
-        RingBuffer &mic_buffer_;
+        std::shared_ptr<RingBuffer> mic_buffer_;
         bool active_{false};
 
         pj_pool_t *pj_pool_;
@@ -60,7 +62,7 @@ namespace voip {
     // audio here, PJSIP pulls it out to send over RTP.
     class SoftwareAudioOutput : public pj::AudioMedia {
     public:
-        explicit SoftwareAudioOutput(RingBuffer &playout_buffer);
+        explicit SoftwareAudioOutput(std::shared_ptr<RingBuffer> playout_buffer);
 
         ~SoftwareAudioOutput() override;
 
@@ -73,7 +75,7 @@ namespace voip {
 
         static pj_status_t GetFrameCallback(pjmedia_port *port, pjmedia_frame *frame);
 
-        RingBuffer &playout_buffer_;
+        std::shared_ptr<RingBuffer> playout_buffer_;
         bool active_{false};
 
         pj_pool_t *pj_pool_;
@@ -86,22 +88,22 @@ namespace voip {
 
     class TgCallsRenderer : public tgcalls::FakeAudioDeviceModule::Renderer {
     public:
-        explicit TgCallsRenderer(RingBuffer &playout_buffer) : playout_buffer_(playout_buffer) {}
+        explicit TgCallsRenderer(std::shared_ptr<RingBuffer> playout_buffer) : playout_buffer_(std::move(playout_buffer)) {}
 
         bool Render(const tgcalls::AudioFrame &frame) override;
 
     private:
-        RingBuffer &playout_buffer_;
+        std::shared_ptr<RingBuffer> playout_buffer_;
     };
 
     class TgCallsRecorder : public tgcalls::FakeAudioDeviceModule::Recorder {
     public:
-        explicit TgCallsRecorder(RingBuffer &mic_buffer) : mic_buffer_(mic_buffer) {}
+        explicit TgCallsRecorder(std::shared_ptr<RingBuffer> mic_buffer) : mic_buffer_(std::move(mic_buffer)) {}
 
         tgcalls::AudioFrame Record() override;
 
     private:
-        RingBuffer &mic_buffer_;
+        std::shared_ptr<RingBuffer> mic_buffer_;
         int16_t scratch_[480];
     };
 
