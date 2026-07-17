@@ -1,3 +1,19 @@
+tg2sip-webrtc (0.1.2) unstable; urgency=medium
+
+  * Wire voip_proxy_* settings into tgcalls::Descriptor::proxy, so a
+    configured SOCKS5 proxy actually reaches the VoIP media path (it was
+    previously accepted in tg2sip.conf but silently had no effect).
+  * Fix a use-after-free crash on fast call teardown: tgcalls' own
+    recording thread could still be calling into TgCallsRecorder after
+    TgCallsController had already been destroyed, since
+    tgcalls::ThreadLocalObject's destructor doesn't wait for its async
+    teardown to actually finish.
+  * Stop falsely advertising video-receive capability to call peers -
+    tg2sip-webrtc is audio-only and never renders video, but was reporting
+    generic platform codec support regardless.
+
+ -- Vlad Vorobyev <vlad.vorobev@gmail.com>  Fri, 17 Jul 2026 15:33:00 +0300
+
 tg2sip-webrtc (0.1.1) unstable; urgency=medium
 
   * Rename the config file, everywhere it's read or shipped, from the
