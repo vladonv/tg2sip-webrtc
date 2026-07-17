@@ -348,6 +348,15 @@ namespace state_machine::actions {
             }
         }
 
+        std::unique_ptr<tgcalls::Proxy> voip_proxy;
+        if (settings.voip_proxy_enabled()) {
+            voip_proxy = std::make_unique<tgcalls::Proxy>();
+            voip_proxy->host = settings.voip_proxy_address();
+            voip_proxy->port = settings.voip_proxy_port();
+            voip_proxy->login = settings.voip_proxy_username();
+            voip_proxy->password = settings.voip_proxy_password();
+        }
+
         auto ctx_id = ctx.id();
         auto controller = std::make_shared<voip::TgCallsController>(
                 encryption_key,
@@ -358,6 +367,7 @@ namespace state_machine::actions {
                 settings.aec_enabled(),
                 settings.ns_enabled(),
                 settings.agc_enabled(),
+                std::move(voip_proxy),
                 [&internal_events, ctx_id](const std::vector<uint8_t> &data) {
                     // Called from tgcalls' own network thread - must not
                     // touch tg::Client directly from here (see the

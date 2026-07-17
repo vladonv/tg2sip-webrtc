@@ -48,6 +48,7 @@ namespace voip {
                           bool enable_aec,
                           bool enable_ns,
                           bool enable_agc,
+                          std::unique_ptr<tgcalls::Proxy> proxy,
                           std::function<void(const std::vector<uint8_t> &)> on_signaling_data);
 
         TgCallsController(const TgCallsController &) = delete;
@@ -108,6 +109,7 @@ namespace voip {
         bool enable_aec_;
         bool enable_ns_;
         bool enable_agc_;
+        std::unique_ptr<tgcalls::Proxy> proxy_;
         std::function<void(const std::vector<uint8_t> &)> on_signaling_data_;
     };
 

@@ -59,6 +59,7 @@ TgCallsController::TgCallsController(std::array<uint8_t, 256> encryption_key,
                                      bool enable_aec,
                                      bool enable_ns,
                                      bool enable_agc,
+                                     std::unique_ptr<tgcalls::Proxy> proxy,
                                      std::function<void(const std::vector<uint8_t> &)> on_signaling_data)
         : encryption_key_(encryption_key),
           is_outgoing_(is_outgoing),
@@ -68,6 +69,7 @@ TgCallsController::TgCallsController(std::array<uint8_t, 256> encryption_key,
           enable_aec_(enable_aec),
           enable_ns_(enable_ns),
           enable_agc_(enable_agc),
+          proxy_(std::move(proxy)),
           on_signaling_data_(std::move(on_signaling_data)) {
     EnsureRegistered();
 }
@@ -103,11 +105,12 @@ void TgCallsController::Start() {
     // default constructor of its own, which makes the whole aggregate's
     // implicit default constructor deleted. Aggregate-initialize instead,
     // in field declaration order (Instance.h), skipping fields we're happy
-    // leaving at their own defaults (persistentState/proxy/
+    // leaving at their own defaults (persistentState/
     // initialNetworkType/mediaDevicesConfig/videoCapture).
     tgcalls::Descriptor descriptor{
             .config = config,
             .endpoints = endpoints_,
+            .proxy = std::move(proxy_),
             .rtcServers = rtc_servers_,
             .encryptionKey = tgcalls::EncryptionKey(
                     std::make_shared<std::array<uint8_t, 256>>(encryption_key_), is_outgoing_),
