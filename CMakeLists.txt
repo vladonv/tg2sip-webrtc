@@ -38,7 +38,7 @@ endif()
 # project has no fork of MarshalX/tgcalls to commit the patches into
 # instead.
 find_package(Git REQUIRED)
-foreach (patch_file 0001-tg2sip-drop-h264-ffmpeg7-incompatible.patch
+foreach (patch_file 0001-tg2sip-fix-h264-ffmpeg7-incompatible.patch
                      0002-tg2sip-dont-advertise-video-support.patch)
     set(patch_path ${CMAKE_SOURCE_DIR}/patches/${patch_file})
     execute_process(

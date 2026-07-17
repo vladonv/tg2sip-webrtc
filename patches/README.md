@@ -17,24 +17,48 @@ before applying) - safe to run `cmake` repeatedly, and safe after a
 `git submodule update` that leaves the submodule at its clean upstream
 state.
 
-## 0001-tg2sip-drop-h264-ffmpeg7-incompatible.patch
+## 0001-tg2sip-fix-h264-ffmpeg7-incompatible.patch
 
-Removes the FFmpeg-backed H264 decoder/encoder from `tg_owt` (tgcalls'
-WebRTC fork). `modules/video_coding/codecs/h264/h264_decoder_impl.cc`
-doesn't compile against FFmpeg 7.x (the distro version on Debian trixie,
-where this migration's build spike was done): `AVFrame`/
-`AVCodecContext::reordered_opaque` was removed upstream as part of FFmpeg's
-own API modernization. tg2sip-webrtc is an audio-only SIP gateway - no video
-calls - so H264 support isn't needed. Safe to drop: `modules/video_coding/codecs/h264/h264.cc`
-already has a proper `#ifdef WEBRTC_USE_H264` fallback path (the same
-pattern already used for the AV1 `_absent` stubs), so undefining
-`WEBRTC_USE_H264` and excluding the two files just makes
-`CreateH264Decoder`/`Encoder` report unsupported instead of failing to
-compile/link.
+Fixes `modules/video_coding/codecs/h264/h264_decoder_impl.cc` (in `tg_owt`,
+tgcalls' WebRTC fork) to actually compile against FFmpeg 7.x, instead of
+excluding H264 from the build entirely (an earlier version of this patch,
+through 2026-07-17, did the latter - see below for why that changed).
 
-If a future tgcalls/tg_owt update upstream fixes FFmpeg 7.x compatibility
-for H264, or if this project ever needs to support video calls, this patch
-should be dropped and reassessed rather than blindly reapplied.
+Three small, version-portable fixes:
+- `AVCodecContext`/`AVFrame::reordered_opaque` was removed upstream in
+  FFmpeg 7.x. This code only ever used it to carry a per-frame timestamp
+  through decode (the comment right above says "we don't expect
+  reordering"), which `pts` already does - and does on every FFmpeg version,
+  not just 7.x - so the fix switches to `packet.pts`/`av_frame_->pts`
+  instead of manually copying `reordered_opaque` between the context and
+  the frame.
+- `avcodec_find_decoder()`'s return type was tightened to `const AVCodec*`
+  in FFmpeg 7.x; the local variable it was assigned to is now `const` too.
+  This compiles fine against older FFmpeg as well (binding a non-const
+  return value to a `const` pointer variable is always legal).
+
+Verified 2026-07-17 building clean end-to-end (including link) on both
+Debian 12 (bookworm, FFmpeg 5.1.9 via `libavcodec` 59.37.100) and Debian 13
+(trixie, FFmpeg 7.1.5) - neither fix is FFmpeg-7-specific, both are the
+actively-maintained/stable APIs on every version tested.
+
+**Why this replaced the original drop-H264 patch**: investigating a
+separate, unrelated iOS-caller silent-audio bug (see the
+`project-tg2sip-ios-silent-audio-investigation` memory) raised the question
+of whether H264 being unavailable (leaving only VP8/VP9 in tg2sip's
+advertised codec list) could be provoking the peer's odd behavior. Testing
+that hypothesis needed a genuinely working H264 decoder, not just a
+codec-list entry with nothing behind it - so it was fixed for real rather
+than faked. (For the record: re-tested live with H264 available end-to-end
+- the hypothesis didn't hold, that bug is unrelated to H264. But the fix
+itself is worth keeping regardless: it restores real, working H264 decode
+against current FFmpeg with no behavioral downside, and no longer relies on
+`modules/video_coding/codecs/h264/h264.cc`'s `#ifdef WEBRTC_USE_H264`
+absent-fallback stub path at all.)
+
+tg2sip-webrtc still never negotiates video with peers either way (see
+0002 below) - this patch only concerns whether H264 successfully *builds*
+into `tg_owt`, not whether tg2sip-webrtc uses it for anything.
 
 ## 0002-tg2sip-dont-advertise-video-support.patch
 
