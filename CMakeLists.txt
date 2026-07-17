@@ -31,15 +31,15 @@ if (NOT EXISTS ${TGCALLS_ROOT}/third_party/webrtc/CMakeLists.txt)
                         "git submodule update --init --recursive third_party/tgcalls")
 endif()
 
-# The submodule needs two small local patches to build against current
-# distro packages (FFmpeg 7.x removed the AVFrame/AVCodecContext fields the
-# vendored H264 decoder/encoder use) - see patches/README.md. Applied here,
-# idempotently, rather than committed into the submodule: patching a git
-# submodule's checkout in place doesn't survive `git submodule update` or a
-# fresh clone, and this project has no fork of MarshalX/tgcalls to commit
-# the patch into instead.
+# The submodule needs a few small local patches - see patches/README.md for
+# what each one does and why. Applied here, idempotently, rather than
+# committed into the submodule: patching a git submodule's checkout in
+# place doesn't survive `git submodule update` or a fresh clone, and this
+# project has no fork of MarshalX/tgcalls to commit the patches into
+# instead.
 find_package(Git REQUIRED)
-foreach (patch_file 0001-tg2sip-drop-h264-ffmpeg7-incompatible.patch)
+foreach (patch_file 0001-tg2sip-drop-h264-ffmpeg7-incompatible.patch
+                     0002-tg2sip-dont-advertise-video-support.patch)
     set(patch_path ${CMAKE_SOURCE_DIR}/patches/${patch_file})
     execute_process(
             COMMAND ${GIT_EXECUTABLE} apply --reverse --check ${patch_path}

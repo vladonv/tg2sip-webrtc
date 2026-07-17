@@ -1,0 +1,28 @@
+diff --git a/tgcalls/third_party/lib_tgcalls/tgcalls/MediaManager.cpp b/tgcalls/third_party/lib_tgcalls/tgcalls/MediaManager.cpp
+index fd81ab19..426fb5a2 100644
+--- a/tgcalls/third_party/lib_tgcalls/tgcalls/MediaManager.cpp
++++ b/tgcalls/third_party/lib_tgcalls/tgcalls/MediaManager.cpp
+@@ -302,10 +302,19 @@ _enableHighBitrateVideo(enableHighBitrateVideo) {
+ 	mediaDeps.video_encoder_factory = PlatformInterface::SharedInstance()->makeVideoEncoderFactory();
+ 	mediaDeps.video_decoder_factory = PlatformInterface::SharedInstance()->makeVideoDecoderFactory();
+ 
+-	_myVideoFormats = ComposeSupportedFormats(
+-		mediaDeps.video_encoder_factory->GetSupportedFormats(),
+-		mediaDeps.video_decoder_factory->GetSupportedFormats(),
+-        preferredCodecs);
++	// tg2sip-webrtc is audio-only - it never provides a videoCapture, never
++	// sends video, and has no video renderer. Deliberately left empty
++	// instead of ComposeSupportedFormats(video_encoder_factory->..., ...)
++	// (which reports whatever the platform's VP8/VP9 codec factories
++	// support, regardless of whether an actual camera/videoCapture exists):
++	// setPeerVideoFormats() intersects this against the peer's offered
++	// formats, and a non-empty intersection tells the peer "receiving video
++	// is negotiated" even though nothing on this side ever renders it -
++	// confirmed live 2026-07-17 that an iOS caller then spent most of its
++	// bandwidth sending real video frames instead of audio, starving audio
++	// down to near-silence. An empty list here keeps that intersection
++	// empty on every call, so peers never negotiate sending video to us.
++	_myVideoFormats = {};
+ 
+     webrtc::AudioProcessingBuilder builder;
+     std::unique_ptr<AudioCapturePostProcessor> audioProcessor = std::make_unique<AudioCapturePostProcessor>([this](float level) {
