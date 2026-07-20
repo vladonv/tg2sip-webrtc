@@ -1,4 +1,5 @@
 build/
+build-clang/
 cmake-build-*/
 CMakeCache.txt
 CMakeFiles/
