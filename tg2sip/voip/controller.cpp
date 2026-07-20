@@ -39,12 +39,18 @@ namespace {
 
     // Prefer the newer WebRTC-reference protocol version when available;
     // Meta::Create() maps this string to Config::protocolVersion internally
-    // ("2.7.7" -> V0, "3.0.0" -> V1 as of the tgcalls source read for this
-    // migration).
+    // ("2.7.7" -> V0, "3.0.0"/"5.0.0" -> V1 as of the tgcalls source read for
+    // this migration). "5.0.0" is just a newer advertised label for the same
+    // V1 wire protocol - official tgcalls (2026) dropped "3.0.0" in favor of
+    // it, so prefer it here too in case real clients treat the version
+    // string itself as a signal (e.g. routing "3.0.0" peers through a
+    // rarely-exercised legacy compat path).
     std::string PreferredVersion() {
         auto versions = tgcalls::Meta::Versions();
-        for (const auto &v : versions) {
-            if (v == "3.0.0") return v;
+        for (const auto &preferred : {"5.0.0", "3.0.0"}) {
+            for (const auto &v : versions) {
+                if (v == preferred) return v;
+            }
         }
         return versions.empty() ? std::string{} : versions.back();
     }
