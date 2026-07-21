@@ -1,0 +1,24 @@
+diff --git a/ntgcalls/src/stream_manager.cpp b/ntgcalls/src/stream_manager.cpp
+index bce8159d..4eaeb0eb 100644
+--- a/ntgcalls/src/stream_manager.cpp
++++ b/ntgcalls/src/stream_manager.cpp
+@@ -83,7 +83,18 @@ namespace ntgcalls {
+     }
+ 
+     void StreamManager::optimizeSources(wrtc::NetworkInterface* pc) {
+-        pc->enableAudioIncoming(writers.contains(Microphone) || externalWriters.contains(Microphone));
++        // Microphone is a Capture-mode device - its config lives in
++        // readers/externalReaders (populated by handleCaptureConfig()),
++        // never in writers/externalWriters (Playback-mode only, populated
++        // by handlePlaybackConfig()). Checking writers/externalWriters here
++        // means this can never be true for a real call, so incoming remote
++        // audio channels never get created (NativeNetworkInterface::
++        // addIncomingSmartSource() gates on audioIncoming) - confirmed via
++        // a live P2P call: SRTP activates correctly, decrypted RTP arrives,
++        // but IncomingAudioChannel is never constructed so RawAudioSink
++        // never attaches and ntg_on_frames never fires. tg2sip-webrtc local
++        // fix, see patches/0003-tg2sip-ntgcalls-fix-audio-incoming-enable-check.patch.
++        pc->enableAudioIncoming(readers.contains(Microphone) || externalReaders.contains(Microphone));
+         pc->enableVideoIncoming(writers.contains(Camera) || externalWriters.contains(Camera), false);
+         pc->enableVideoIncoming(writers.contains(Screen) || externalWriters.contains(Screen), true);
+         initialized = pc->getConnectionMode() != wrtc::ConnectionMode::None;

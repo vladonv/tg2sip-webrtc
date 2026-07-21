@@ -65,7 +65,8 @@ if (NOT EXISTS ${CMAKE_SOURCE_DIR}/third_party/ntgcalls/CMakeLists.txt)
 endif ()
 
 foreach (patch_file 0001-tg2sip-ntgcalls-add_subdirectory-fixes.patch
-                     0002-tg2sip-ntgcalls-missing-includes.patch)
+                     0002-tg2sip-ntgcalls-missing-includes.patch
+                     0003-tg2sip-ntgcalls-fix-audio-incoming-enable-check.patch)
     set(patch_path ${CMAKE_SOURCE_DIR}/patches/${patch_file})
     execute_process(
             COMMAND ${GIT_EXECUTABLE} apply --reverse --check ${patch_path}
@@ -134,6 +135,30 @@ if (TARGET wrtc)
 endif ()
 if (TARGET ntgcalls-native)
     target_compile_options(ntgcalls-native PRIVATE -include ${NTGCALLS_OPENSSL_RENAME_HEADER})
+endif ()
+
+# Same bug, one library over: libwebrtc.a also bundles its own libsrtp
+# (2.0.0), which shares ~140 plain C symbol names with PJSIP's own bundled
+# libsrtp (2.1.0, found via pkg-config's -L dir for libpjproject above).
+# 2.1.0 changed srtp_policy_t's layout (added MKI support) versus 2.0.0, so
+# whichever definition the linker keeps for the whole binary silently breaks
+# whichever side didn't win - confirmed real: WebRTC's own SrtpSession ends
+# up calling PJSIP's srtp_create() with a struct shaped for 2.0.0, which
+# 2.1.0 rejects as srtp_err_status_bad_param right after a real call's DTLS
+# handshake completes. See buildenv/rename-webrtc-libsrtp-symbols.sh. No
+# force-include header needed here (unlike the OpenSSL case above) -
+# ntgcalls' own source never calls libsrtp directly, only libwebrtc.a does
+# internally.
+file(GLOB PJSIP_LIBSRTP_ARCHIVE ${PJSIP_LIBRARY_DIRS}/libsrtp*.a)
+if (NOT PJSIP_LIBSRTP_ARCHIVE)
+    message(FATAL_ERROR "No libsrtp*.a found in ${PJSIP_LIBRARY_DIRS} - "
+                        "expected PJSIP's own bundled libsrtp there")
+endif ()
+execute_process(
+        COMMAND ${CMAKE_SOURCE_DIR}/buildenv/rename-webrtc-libsrtp-symbols.sh ${NTGCALLS_PREBUILT_WEBRTC} ${PJSIP_LIBSRTP_ARCHIVE}
+        RESULT_VARIABLE ntg_srtp_rename_result)
+if (NOT ntg_srtp_rename_result EQUAL 0)
+    message(FATAL_ERROR "Failed to rename colliding libsrtp symbols in ${NTGCALLS_PREBUILT_WEBRTC}")
 endif ()
 
 # Extra glibc resolver stubs: the prebuilt libgio-2.0.a (an ntgcalls

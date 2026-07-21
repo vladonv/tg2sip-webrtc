@@ -92,8 +92,21 @@ void TgCallsController::Start() {
         return ntg_set_stream_sources(ptr, user_id_, NTG_STREAM_CAPTURE, capture_desc, future);
     });
 
+    // Microphone, not Speaker, despite this being the Playback-mode/incoming
+    // side: ntgcalls' Device::Speaker is only ever wired up for group calls'
+    // separate presentation/screen-share audio connection
+    // (group_call.cpp's addTrack(Capture, Speaker, presentationConnection))
+    // - P2PCall::connect() only ever calls addTrack(Playback, Microphone,
+    // ...) for the real remote-peer voice track, for both P2P and regular
+    // group calls. Using Speaker here silently pointed
+    // NativeNetworkInterface::remoteAudioSink at an unconfigured, dead
+    // {Playback, Microphone} AudioReceiver instead of this one - real
+    // encrypted RTP arrived and decrypted fine (confirmed via tcpdump),
+    // IncomingAudioChannel's RawAudioSink fired, but AudioReceiver::open()'s
+    // callback silently no-oped on a null `description` (never configured),
+    // so ntg_on_frames never fired even once.
     ntg_media_description_struct playback_desc{};
-    playback_desc.speaker = &audio_desc;
+    playback_desc.microphone = &audio_desc;
     runtime.CallBlocking([&](const ntg_async_struct future) {
         return ntg_set_stream_sources(ptr, user_id_, NTG_STREAM_PLAYBACK, playback_desc, future);
     });
@@ -198,7 +211,7 @@ void TgCallsController::OnSignalingData(const uint8_t *data, const int size) {
 
 void TgCallsController::OnFrames(const ntg_stream_mode_enum mode, const ntg_stream_device_enum device,
                                  ntg_frame_struct *frames, const uint64_t count) {
-    if (mode != NTG_STREAM_PLAYBACK || device != NTG_STREAM_SPEAKER) {
+    if (mode != NTG_STREAM_PLAYBACK || device != NTG_STREAM_MICROPHONE) {
         return;
     }
     for (uint64_t i = 0; i < count; ++i) {
