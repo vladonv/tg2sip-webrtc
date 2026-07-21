@@ -11,13 +11,12 @@ Maintainer: Vlad Vorobyev <vlad.vorobev@gmail.com>
 # tg_owt/old-tgcalls CMake block (the only thing that used to consume
 # libvpx-dev/libabsl-dev as real system packages) is gone. Removed:
 # libabsl-dev, libvpx-dev (confirmed zero references left anywhere in this
-# project's own CMakeLists.txt); libjpeg-dev, libasound2-dev, libpulse-dev,
-# the libx*-dev/libxcomposite-dev cluster, libpipewire-0.3-dev, libevent-dev
-# (confirmed zero references in this project's own CMakeLists.txt, PJSIP is
-# built with --disable-sound so never needed alsa/pulse either - but this
-# specific pruned list has NOT been re-verified with an actual from-scratch
-# .deb build, only reasoned from source; if CI ever fails here on a missing
-# header, that's why). libspdlog-dev/libfmt-dev also removed - spdlog is
+# project's own CMakeLists.txt); libjpeg-dev, libpulse-dev, the
+# libx*-dev/libxcomposite-dev cluster, libpipewire-0.3-dev, libevent-dev
+# (confirmed zero references in this project's own CMakeLists.txt *and* in
+# ntgcalls' own vendored .cpp/.hpp sources - checked directly after the
+# libasound2-dev miss below, to avoid finding the rest of this list's gaps
+# one broken CI run at a time). libspdlog-dev/libfmt-dev also removed - spdlog is
 # now built from source under the same Clang+libc++ toolchain as PJSIP/
 # TDLib below (Debian's own libspdlog1.15 is GCC+libstdc++-built, mixing it
 # in would reintroduce the exact ABI-collision bug class documented in
@@ -27,6 +26,22 @@ Maintainer: Vlad Vorobyev <vlad.vorobev@gmail.com>
 # real system opus/ffmpeg (separately from whatever copy ntgcalls itself
 # also fetches for its own internal use), confirmed live via configure
 # output ("Checking for module 'opus'" / "-- Found opus, version 1.3.1").
+# libasound2-dev IS kept, unlike the rest of the removed audio/X11 cluster
+# above - real, live CI failure caught this (build (bookworm, 12) of the
+# first actual dpkg-buildpackage test run of this migration):
+# ntgcalls/include/ntgcalls/devices/alsa_device_module.hpp directly
+# #include <alsa/asoundlib.h> for type declarations, even though the
+# corresponding .cpp only ever dlopen()s libasound.so at runtime via a
+# LATESYM_GET symbol table (never actually linked at build time) - the
+# header still needs to compile regardless of whether tg2sip-webrtc itself
+# ever instantiates that device class (it doesn't - external audio source
+# only). Checked pulse_device_module.hpp/pulse_connection.cpp the same way
+# afterward: neither includes a raw <pulse/...> system header (both only
+# use WebRTC's own vendored modules/audio_device/linux/audio_device_pulse_linux.h,
+# already covered by the -isystem paths ntgcalls' own CMake sets up) - so
+# libpulse-dev genuinely doesn't need to come back, confirmed by the same
+# CI run compiling those two files successfully before failing on ALSA.
+#
 # clang-<N>/libc++-<N>-dev/libc++abi-<N>-dev deliberately NOT listed here:
 # Debian's own apt doesn't carry them (bookworm's apt clang is 14, too old
 # to even compile ntgcalls' vendored libc++ headers - real, confirmed
@@ -56,6 +71,7 @@ Build-Depends: debhelper-compat (= 13),
  gperf,
  yasm,
  nasm,
+ libasound2-dev,
  libopus-dev,
  libavcodec-dev,
  libavformat-dev,
