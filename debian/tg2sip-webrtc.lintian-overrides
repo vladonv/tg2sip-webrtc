@@ -4,3 +4,16 @@
 # build-time switch to link Debian's separately-packaged libsrtp2 instead -
 # revisit this override if that ever changes upstream.
 tg2sip-webrtc: embedded-library srtp [usr/bin/tg2sip-webrtc]
+
+# ntgcalls (the calling backend, vendored as a git submodule - not
+# something this project builds itself) fetches and statically links its
+# own copies of expat, libjpeg, and zlib as part of its own CMake
+# dependency chain (see third_party/ntgcalls/cmake/FindGLib.cmake and
+# friends - these are its own downloads, not choices made in this
+# project's own CMakeLists.txt). Not easily avoidable without patching
+# ntgcalls' own build scripts to prefer system libraries instead - an
+# accepted tradeoff for now, real lintian failure confirmed on the first
+# clean dpkg-buildpackage run of the ntgcalls/Clang migration.
+tg2sip-webrtc: embedded-library expat [usr/bin/tg2sip-webrtc]
+tg2sip-webrtc: embedded-library libjpeg [usr/bin/tg2sip-webrtc]
+tg2sip-webrtc: embedded-library zlib [usr/bin/tg2sip-webrtc]
