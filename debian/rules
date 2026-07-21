@@ -22,6 +22,18 @@ DEPS_PREFIX := $(CURDIR)/debian/build-deps/local
 export PKG_CONFIG_PATH := $(DEPS_PREFIX)/lib/pkgconfig
 BUILD_JOBS ?= 4
 
+# dh_dwz (debug-info deduplication across the package's binaries, purely a
+# -dbgsym-package-size optimization, not a correctness requirement) fails
+# outright on both bookworm and trixie's own dwz binary: "Unknown debugging
+# section .debug_addr" - real, confirmed CI failure, not hypothetical.
+# Clang 21 (needed for ntgcalls, see the CLANG_VERSION block below) emits
+# DWARF sections that both Debian releases' own (comparatively old) dwz
+# don't understand yet. nodwz is debhelper's own documented
+# DEB_BUILD_OPTIONS flag for exactly this situation - skips dh_dwz
+# entirely rather than fighting dwz version skew, at the cost of a larger
+# (uncompressed) -dbgsym package.
+export DEB_BUILD_OPTIONS += nodwz
+
 # apt's own clang is too old on both Debian releases this project targets
 # to even compile ntgcalls' vendored Chromium libc++ headers (bookworm's
 # apt clang 14: real compile errors, not a warning; trixie's apt clang
