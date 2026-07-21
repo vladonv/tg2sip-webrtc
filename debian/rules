@@ -5,44 +5,84 @@
 # doesn't track (see build-debian.sh / project notes on the reasoning) -
 # instead they're built into a private prefix under debian/build-deps and
 # found via PKG_CONFIG_PATH (PJSIP, via pkg-config) / CMAKE_PREFIX_PATH
-# (TDLib, via find_package(Td)). Both link statically into the final
-# binaries, so nothing needs to survive past the build.
+# (TDLib/spdlog, via find_package()). All three link statically or ship
+# their own .so alongside the binary, so nothing needs to survive past the
+# build except what dh_shlibdeps/dpkg-shlibdeps pick up automatically.
+#
+# dev/ntgcalls branch: everything C++-ABI-sensitive (TDLib, PJSIP, spdlog)
+# now has to be built under the *same* Clang+libc++ toolchain as ntgcalls'
+# own prebuilt WebRTC archive - mixing GCC+libstdc++-built objects with it
+# is a real, confirmed binary ABI mismatch (three separate crashes chased
+# down and fixed this way during the migration - see
+# buildenv/rename-webrtc-openssl-symbols.sh's own comment header for the
+# full story), not just a toolchain-consistency nicety. Matches what
+# buildenv/build-clang-libcxx-deps.sh does for local dev builds, adapted to
+# debhelper's rules-file idioms and a private-prefix CMake (see below).
 DEPS_PREFIX := $(CURDIR)/debian/build-deps/local
 export PKG_CONFIG_PATH := $(DEPS_PREFIX)/lib/pkgconfig
-PJSIP_JOBS := $(shell nproc)
-# TDLib/tg_owt compile units are heavier per-TU than PJSIP's; cap
-# concurrency to stay safe on small (~8GB) build boxes instead of assuming
-# nproc-wide is fine (matches build-debian.sh's BUILD_JOBS default - an
-# uncapped -j$(nproc) TDLib build got its linker OOM-killed on a 6-core/8GB
-# box the one time this was tried). Overridable (BUILD_JOBS=2 make ...) for
-# even more memory-constrained environments like shared CI runners.
 BUILD_JOBS ?= 4
+
+# apt's own clang is too old on both Debian releases this project targets
+# to even compile ntgcalls' vendored Chromium libc++ headers (bookworm's
+# apt clang 14: real compile errors, not a warning; trixie's apt clang
+# happens to already be ~19, which works, but relying on "whatever the
+# distro currently ships" is an implicit, driftable dependency rather than
+# a pinned one). Pin an explicit version from apt.llvm.org instead, same
+# on both releases - see the "Install newer Clang" CI step, which installs
+# these binaries (clang-$(CLANG_VERSION) etc) before this file ever runs.
+# Referenced here by their versioned binary names directly (not plain
+# "clang"/"clang++"), deliberately not relying on update-alternatives -
+# this file has no control over what else might touch that systemwide
+# state on a shared/reused builder.
+CLANG_VERSION := 21
+CC := clang-$(CLANG_VERSION)
+CXX := clang++-$(CLANG_VERSION)
+CLANG_CXXFLAGS := -stdlib=libc++
+CLANG_LDFLAGS := -stdlib=libc++
+
+# apt's own cmake is also too old (bookworm: 3.25.1; ntgcalls' own
+# CMakeLists.txt requires 3.27+, not something lowering this project's own
+# requirement would fix - CMake enforces cmake_minimum_required per-file,
+# and ntgcalls' vendored CMakeLists.txt has the same declaration
+# independently). Fetched as a plain Kitware GitHub-releases binary
+# tarball rather than adding Kitware's own apt repo - simpler for a
+# single-purpose CI/build-time need than a whole extra apt source.
+CMAKE_VERSION := 4.3.3
+CMAKE_DIR := $(CURDIR)/debian/build-deps/cmake-$(CMAKE_VERSION)
+CMAKE := $(CMAKE_DIR)/bin/cmake
 
 %:
 	dh $@ --buildsystem=cmake+ninja
 
 override_dh_auto_configure:
-	# Selective submodule init - see build-debian.sh for why each of these
-	# is/isn't needed (the 'cmake' one is desktop-app/cmake_helpers, not
-	# the build tool; libvpx/libyuv are needed as source trees for tg_owt's
-	# CMake target definitions even though libvpx-dev ends up linked
-	# instead; pybind11 is genuinely unused).
-	git submodule update --init third_party/tgcalls
-	cd third_party/tgcalls && \
-		git submodule update --init cmake && \
-		git submodule update --init --depth 1 \
-			tgcalls/third_party/webrtc/src/third_party/libyuv \
-			tgcalls/third_party/webrtc/src/third_party/libvpx/source/libvpx
-
 	mkdir -p debian/build-deps
+	test -x $(CMAKE) || ( \
+		curl -fsSL -o debian/build-deps/cmake.tar.gz \
+			https://github.com/Kitware/CMake/releases/download/v$(CMAKE_VERSION)/cmake-$(CMAKE_VERSION)-linux-x86_64.tar.gz && \
+		mkdir -p $(CMAKE_DIR) && \
+		tar xzf debian/build-deps/cmake.tar.gz -C $(CMAKE_DIR) --strip-components=1 && \
+		rm debian/build-deps/cmake.tar.gz )
+
+	git submodule update --init third_party/ntgcalls
+
 	test -d debian/build-deps/pjproject || \
 		git clone --depth 1 --branch 2.9 https://github.com/pjsip/pjproject.git debian/build-deps/pjproject
 	cp buildenv/config_site.h debian/build-deps/pjproject/pjlib/include/pj/
 	cd debian/build-deps/pjproject && \
-		./configure --prefix=$(DEPS_PREFIX) --disable-sound CFLAGS="-O3 -DNDEBUG -fPIC" && \
+		CC=$(CC) CXX=$(CXX) \
+		CFLAGS="-O3 -DNDEBUG -fPIC" \
+		CXXFLAGS="-O3 -DNDEBUG -fPIC $(CLANG_CXXFLAGS)" \
+		LDFLAGS="$(CLANG_LDFLAGS)" \
+			./configure --prefix=$(DEPS_PREFIX) --disable-sound && \
 		$(MAKE) dep && \
-		$(MAKE) -j$(PJSIP_JOBS) && \
+		$(MAKE) -j$(BUILD_JOBS) && \
 		$(MAKE) install
+	# The autogenerated libpjproject.pc hardcodes "-lstdc++" in its C++
+	# link libs (a template default, independent of which compiler
+	# actually built it) - reintroduces exactly the ABI mixing this whole
+	# toolchain switch exists to avoid. -stdlib=libc++ at link time
+	# already pulls in the right runtime.
+	sed -i 's/-lstdc++ //' $(DEPS_PREFIX)/lib/pkgconfig/libpjproject.pc
 
 	# TDLib master, not the repo's pinned 1.7.10 commit - the old pin is
 	# rejected by current Telegram servers with UPDATE_APP_TO_LOGIN.
@@ -50,13 +90,55 @@ override_dh_auto_configure:
 		git clone https://github.com/tdlib/td.git debian/build-deps/td
 	mkdir -p debian/build-deps/td/build
 	cd debian/build-deps/td/build && \
-		cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$(DEPS_PREFIX) -G Ninja .. && \
-		cmake --build . --target install -j$(BUILD_JOBS)
+		$(CMAKE) -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$(DEPS_PREFIX) \
+			-DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) \
+			-DCMAKE_CXX_FLAGS="$(CLANG_CXXFLAGS)" \
+			-DCMAKE_EXE_LINKER_FLAGS="$(CLANG_LDFLAGS)" \
+			-DCMAKE_SHARED_LINKER_FLAGS="$(CLANG_LDFLAGS)" \
+			-G Ninja .. && \
+		$(CMAKE) --build . --target install -j$(BUILD_JOBS)
 
-	dh_auto_configure -- -DCMAKE_PREFIX_PATH=$(DEPS_PREFIX)
+	# Debian's own libspdlog1.15 is GCC+libstdc++-built - would silently
+	# reintroduce the same ABI-collision bug class this whole toolchain
+	# switch exists to avoid, one library over. Build our own under the
+	# same Clang+libc++ toolchain instead. Version matches what Debian
+	# itself ships (1.15.2), not load-bearing, just avoids an unrelated
+	# version drift.
+	#
+	# Static (SPDLOG_BUILD_SHARED left at its default OFF), deliberately
+	# unlike buildenv/build-clang-libcxx-deps.sh's local-dev-build version
+	# of this same step: a shared libspdlog.so.1.15 built here would carry
+	# the exact same SONAME Debian's own (GCC-built) libspdlog1.15 package
+	# uses, so dh_shlibdeps/dpkg-shlibdeps would record a plain
+	# "libspdlog1.15" runtime Depends on the resulting .deb - satisfied on
+	# the *installing* machine by the system's real (GCC-built) package,
+	# not this private Clang-built one. That's the same ABI mismatch this
+	# whole file exists to avoid, just relocated from build time to
+	# install time on some other machine, and far harder to diagnose
+	# there. Static sidesteps it entirely - matches how PJSIP/TDLib are
+	# already linked here.
+	test -d debian/build-deps/spdlog || \
+		git clone --branch v1.15.2 --depth 1 https://github.com/gabime/spdlog.git debian/build-deps/spdlog
+	cd debian/build-deps/spdlog && \
+		$(CMAKE) -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$(DEPS_PREFIX) \
+			-DCMAKE_CXX_COMPILER=$(CXX) \
+			-DCMAKE_CXX_FLAGS="$(CLANG_CXXFLAGS)" \
+			-DCMAKE_POSITION_INDEPENDENT_CODE=ON && \
+		$(CMAKE) --build build -j$(BUILD_JOBS) && \
+		$(CMAKE) --install build
+
+	# PATH prefix so debhelper's own "cmake" invocation (inside
+	# dh_auto_configure/dh_auto_build below) picks up the fetched modern
+	# CMake instead of apt's too-old one - debhelper just runs "cmake" via
+	# PATH, it has no separate knob for this.
+	PATH="$(CMAKE_DIR)/bin:$$PATH" dh_auto_configure -- \
+		-DCMAKE_PREFIX_PATH=$(DEPS_PREFIX) \
+		-DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) \
+		-DCMAKE_CXX_FLAGS="$(CLANG_CXXFLAGS)" \
+		-DCMAKE_EXE_LINKER_FLAGS="$(CLANG_LDFLAGS)"
 
 override_dh_auto_build:
-	dh_auto_build -- -j$(BUILD_JOBS)
+	PATH="$(CMAKE_DIR)/bin:$$PATH" dh_auto_build -- -j$(BUILD_JOBS)
 
 override_dh_auto_test:
 	# No CMake enable_testing()/add_test() in this project, so the Ninja

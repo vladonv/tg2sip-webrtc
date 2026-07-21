@@ -29,23 +29,18 @@ pkg_check_modules(FFMPEG REQUIRED libavcodec libavformat libavutil libswscale li
 # (a submodule keeps the licensing boundary explicit instead of blurring it
 # by vendoring the source directly alongside tg2sip's own GPLv2 files).
 #
-# third_party/tgcalls itself (and the tg_owt WebRTC fork it built from
-# source) is no longer part of this build at all - not just superseded at
-# the tg2sip source level (controller.cpp/audio_bridge.cpp no longer call
-# into it, see below), but genuinely unbuildable together with ntgcalls:
-# both vendor forks/snapshots of the same upstream Chromium WebRTC
-# codebase, so thousands of plain (non-template, no STL types in the
-# mangled name - so no libc++/libstdc++ ABI-namespace protection either)
-# C++ symbols like webrtc::SyncBuffer::PushFrontZeros collide at link time
-# between tg_owt's libtg_owt.a and ntgcalls' prebuilt libwebrtc.a. Found by
+# The old third_party/tgcalls submodule (and the tg_owt WebRTC fork it
+# built from source) is gone entirely, not just superseded at the tg2sip
+# source level (controller.cpp/audio_bridge.cpp no longer call into it) -
+# it's genuinely unbuildable together with ntgcalls: both vendor
+# forks/snapshots of the same upstream Chromium WebRTC codebase, so
+# thousands of plain (non-template, no STL types in the mangled name - so
+# no libc++/libstdc++ ABI-namespace protection either) C++ symbols like
+# webrtc::SyncBuffer::PushFrontZeros collide at link time between
+# tg_owt's libtg_owt.a and ntgcalls' prebuilt libwebrtc.a. Found by
 # actually trying it (150+ duplicate-symbol linker errors) - the C-API ABI
 # boundary below only solves the libc++-vs-libstdc++ problem, it doesn't
 # and can't solve two copies of the same symbols existing in one binary.
-# The third_party/tgcalls submodule and patches/0001-.../0002-... (its own
-# patches, unrelated to the two ntgcalls ones below) are left in git for
-# now rather than deleted outright - nothing in tg2sip's own source
-# references them anymore, but removing the submodule/patches themselves is
-# left as a separate, deliberate cleanup commit rather than folded in here.
 #
 # tg2sip's own code (voip/ntgcalls_runtime.{h,cpp}, controller.{h,cpp})
 # talks to ntgcalls exclusively through its flat C API

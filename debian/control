@@ -2,41 +2,68 @@ Source: tg2sip-webrtc
 Section: comm
 Priority: optional
 Maintainer: Vlad Vorobyev <vlad.vorobev@gmail.com>
+# dev/ntgcalls branch package list (see debian/rules for the full story).
+# Compared to the old tgcalls/tg_owt-based build, this list shrank a lot:
+# ntgcalls' own CMake fetches prebuilt/vendored copies of X11, mesa, glib,
+# ffmpeg, abseil, openh264 etc itself (confirmed live via its configure
+# output - "-- glib v2.89.0", "-- libX11 v1.8.13", ... - these are its own
+# downloads, not pkg-config lookups against system packages), and the whole
+# tg_owt/old-tgcalls CMake block (the only thing that used to consume
+# libvpx-dev/libabsl-dev as real system packages) is gone. Removed:
+# libabsl-dev, libvpx-dev (confirmed zero references left anywhere in this
+# project's own CMakeLists.txt); libjpeg-dev, libasound2-dev, libpulse-dev,
+# the libx*-dev/libxcomposite-dev cluster, libpipewire-0.3-dev, libevent-dev
+# (confirmed zero references in this project's own CMakeLists.txt, PJSIP is
+# built with --disable-sound so never needed alsa/pulse either - but this
+# specific pruned list has NOT been re-verified with an actual from-scratch
+# .deb build, only reasoned from source; if CI ever fails here on a missing
+# header, that's why). libspdlog-dev/libfmt-dev also removed - spdlog is
+# now built from source under the same Clang+libc++ toolchain as PJSIP/
+# TDLib below (Debian's own libspdlog1.15 is GCC+libstdc++-built, mixing it
+# in would reintroduce the exact ABI-collision bug class documented in
+# buildenv/rename-webrtc-openssl-symbols.sh/rename-webrtc-libsrtp-symbols.sh
+# one library over). libopus-dev/libavcodec-dev/etc KEPT - unlike the ones
+# above, tg2sip-webrtc's own CMakeLists.txt genuinely pkg_check_modules()s
+# real system opus/ffmpeg (separately from whatever copy ntgcalls itself
+# also fetches for its own internal use), confirmed live via configure
+# output ("Checking for module 'opus'" / "-- Found opus, version 1.3.1").
+# clang-<N>/libc++-<N>-dev/libc++abi-<N>-dev deliberately NOT listed here:
+# Debian's own apt doesn't carry them (bookworm's apt clang is 14, too old
+# to even compile ntgcalls' vendored libc++ headers - real, confirmed
+# compile errors, not just a warning), they only exist via apt.llvm.org,
+# which has to be added as an apt source *before* `apt-get build-dep` can
+# resolve anything from it - see the "Install newer Clang" step in
+# .github/workflows/deb-packages.yml, which installs them explicitly ahead
+# of the build-dep step below rather than through this file.
+#
+# gperf/yasm/nasm kept even though nothing in this project's own
+# CMakeLists.txt/pkg-config lookups references them directly (unlike the
+# ones actually removed above) - PJSIP still builds several of its own
+# bundled third-party codecs (libsrtp, speex, resample, ...) from source in
+# debian/rules, and unlike the X11/audio/libvpx/libabsl cluster above,
+# whether any of those still need gperf/yasm/nasm for assembly-optimized
+# paths wasn't specifically checked. Cheap to keep, unlike the packages
+# actually pulled above; only remove after actually confirming PJSIP's own
+# build doesn't reach for them.
 Build-Depends: debhelper-compat (= 13),
  dh-exec,
  git,
  ca-certificates,
+ curl,
  cmake,
  ninja-build,
  pkg-config,
  gperf,
  yasm,
  nasm,
- libjpeg-dev,
  libopus-dev,
- libasound2-dev,
- libpulse-dev,
- libx11-dev,
- libxext-dev,
- libxdamage-dev,
- libxfixes-dev,
- libxrender-dev,
- libxrandr-dev,
- libxtst-dev,
- libxcomposite-dev,
- libevent-dev,
  libavcodec-dev,
  libavformat-dev,
  libavutil-dev,
  libswscale-dev,
  libswresample-dev,
- libpipewire-0.3-dev,
- libabsl-dev,
- libvpx-dev,
  libssl-dev,
- zlib1g-dev,
- libspdlog-dev,
- libfmt-dev
+ zlib1g-dev
 Standards-Version: 4.6.2
 Homepage: https://github.com/vladonv/tg2sip-webrtc
 Rules-Requires-Root: no
@@ -44,15 +71,18 @@ Rules-Requires-Root: no
 Package: tg2sip-webrtc
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, adduser
-Description: Telegram <-> SIP voice gateway using tgcalls (WebRTC)
- tg2sip-webrtc bridges Telegram calls (via TDLib + tgcalls/WebRTC) to a SIP
+Description: Telegram <-> SIP voice gateway using ntgcalls (WebRTC)
+ tg2sip-webrtc bridges Telegram calls (via TDLib + ntgcalls/WebRTC) to a SIP
  PBX (via PJSIP) in both directions: incoming Telegram calls can be
  forwarded to a SIP extension, and SIP can place outgoing calls to
  Telegram contacts.
  .
  This is a fork of the archived Infactum/tg2sip, replacing the defunct
- libtgvoip P2P calling protocol with tgcalls (WebRTC) and bumping TDLib to
- a version current Telegram servers still accept.
+ libtgvoip P2P calling protocol with pytgcalls/ntgcalls (a from-scratch,
+ actively maintained WebRTC calling implementation, replacing an earlier
+ tgcalls-based rewrite that could no longer negotiate the current Telegram
+ calling protocol) and bumping TDLib to a version current Telegram servers
+ still accept.
  .
  This package installs the tg2sip-webrtc gateway daemon (with a systemd
  service) and the tg2sip-gendb helper, used once to interactively create

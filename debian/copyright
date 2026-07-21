@@ -2,10 +2,10 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: tg2sip-webrtc
 Source: https://github.com/vladonv/tg2sip-webrtc
 Comment: Fork of the archived https://github.com/Infactum/tg2sip, replacing
- the defunct libtgvoip calling protocol with tgcalls (WebRTC). The
- tgcalls/tg_owt build dependency lives as the third_party/tgcalls git
- submodule (LGPL-3, github.com/MarshalX/tgcalls) and is not part of this
- source package.
+ the defunct libtgvoip calling protocol with ntgcalls (WebRTC). The
+ ntgcalls build dependency lives as the third_party/ntgcalls git submodule
+ (LGPL-3, github.com/pytgcalls/ntgcalls) and is not part of this source
+ package.
 
 Files: *
 Copyright: 2017-2018, infactum <infactum@gmail.com>

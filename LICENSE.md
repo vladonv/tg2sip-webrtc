@@ -3,7 +3,7 @@
 The individual source files in this repository carry "GPL-2, or (at your
 option) any later version" headers (see debian/copyright for the full
 per-file breakdown). Because building a working binary requires the
-`third_party/tgcalls` git submodule, which is LGPL-3, the combined/
+`third_party/ntgcalls` git submodule, which is LGPL-3, the combined/
 distributed work's effective license is GPL-3 - exercising the "or later"
 option each file's own header already grants. That is why the full text
 below is GPLv3, not GPLv2.

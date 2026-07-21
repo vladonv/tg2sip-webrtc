@@ -2,9 +2,10 @@
 
 A fork of [Infactum/tg2sip](https://github.com/Infactum/tg2sip) (archived,
 read-only) updated to use Telegram's current WebRTC-based calling protocol
-(`tgcalls`) instead of the now-defunct `libtgvoip` P2P protocol, plus a
-matching TDLib version bump (the old pinned TDLib was refused login by
-Telegram's servers entirely, independent of the calling-protocol change).
+([`pytgcalls/ntgcalls`](https://github.com/pytgcalls/ntgcalls)) instead of
+the now-defunct `libtgvoip` P2P protocol, plus a matching TDLib version bump
+(the old pinned TDLib was refused login by Telegram's servers entirely,
+independent of the calling-protocol change).
 
 TG2SIP is a Telegram<->SIP voice gateway. It can be used to forward incoming telegram calls to your SIP PBX or make SIP->Telegram calls.
 
