@@ -3,63 +3,69 @@ Section: comm
 Priority: optional
 Maintainer: Vlad Vorobyev <vlad.vorobev@gmail.com>
 # dev/ntgcalls branch package list (see debian/rules for the full story).
-# Compared to the old tgcalls/tg_owt-based build, this list shrank a lot:
-# ntgcalls' own CMake fetches prebuilt/vendored copies of X11, mesa, glib,
-# ffmpeg, abseil, openh264 etc itself (confirmed live via its configure
-# output - "-- glib v2.89.0", "-- libX11 v1.8.13", ... - these are its own
-# downloads, not pkg-config lookups against system packages), and the whole
-# tg_owt/old-tgcalls CMake block (the only thing that used to consume
-# libvpx-dev/libabsl-dev as real system packages) is gone. Removed:
-# libabsl-dev, libvpx-dev (confirmed zero references left anywhere in this
-# project's own CMakeLists.txt); libjpeg-dev, libpulse-dev, the
-# libx*-dev/libxcomposite-dev cluster, libpipewire-0.3-dev, libevent-dev
-# (confirmed zero references in this project's own CMakeLists.txt *and* in
-# ntgcalls' own vendored .cpp/.hpp sources - checked directly after the
-# libasound2-dev miss below, to avoid finding the rest of this list's gaps
-# one broken CI run at a time). libspdlog-dev/libfmt-dev also removed - spdlog is
-# now built from source under the same Clang+libc++ toolchain as PJSIP/
-# TDLib below (Debian's own libspdlog1.15 is GCC+libstdc++-built, mixing it
-# in would reintroduce the exact ABI-collision bug class documented in
+#
+# Compared to the old tgcalls/tg_owt-based build: libabsl-dev and libvpx-dev
+# are gone for real (the tg_owt CMake block that consumed them no longer
+# exists, confirmed zero references anywhere in this project's own
+# CMakeLists.txt) and libpulse-dev is genuinely not needed (real CI build
+# confirmed pulse_device_module.hpp/pulse_connection.cpp compile clean
+# without it - both only use WebRTC's own vendored
+# audio_device_pulse_linux.h, no raw system <pulse/...> header anywhere).
+#
+# Everything else from the old list (libjpeg-dev, libasound2-dev, the
+# libx11-dev/libxext-dev/.../libxcomposite-dev cluster, libpipewire-0.3-dev,
+# libevent-dev) is kept, even though ntgcalls' own CMake does fetch its own
+# copies of X11/mesa/glib/ffmpeg/openh264 (confirmed live via its configure
+# output - "-- glib v2.89.0", "-- libX11 v1.8.13", ...). The "ntgcalls
+# vendors its own copies, so the system package is unneeded" theory looked
+# solid from reading this project's own CMakeLists.txt alone, but two real
+# CI failures on the first actual dpkg-buildpackage runs of this migration
+# proved it wrong twice: ntgcalls/include/ntgcalls/devices/alsa_device_module.hpp
+# directly #includes <alsa/asoundlib.h> for type declarations (even though
+# the matching .cpp only ever dlopen()s libasound.so at runtime via a
+# LATESYM_GET symbol table, never linked at build time - the header still
+# has to compile regardless), and separately ntgcalls' own *vendored*
+# X11/Xlib.h itself failed to find X11/X.h - its downloaded X11 headers
+# are incomplete on their own and evidently expect the rest from the
+# system's real libx11-dev. Both are "partially vendored, not fully
+# self-contained" - the vendoring reduces linking (final .so binaries) but
+# not necessarily the full header closure. Given that pattern held twice
+# and each CI round-trip costs ~35-45 min, the remaining untested members
+# of the same removed cluster (libjpeg-dev/libpipewire-0.3-dev/
+# libevent-dev) were restored preemptively rather than found one file at a
+# time - no positive build confirmation either way for those three
+# specifically (unlike libpulse-dev, ALSA, and X11, which do have it).
+#
+# libspdlog-dev/libfmt-dev removed - spdlog is now built from source under
+# the same Clang+libc++ toolchain as PJSIP/TDLib below (Debian's own
+# libspdlog1.15 is GCC+libstdc++-built, mixing it in would reintroduce the
+# exact ABI-collision bug class documented in
 # buildenv/rename-webrtc-openssl-symbols.sh/rename-webrtc-libsrtp-symbols.sh
-# one library over). libopus-dev/libavcodec-dev/etc KEPT - unlike the ones
-# above, tg2sip-webrtc's own CMakeLists.txt genuinely pkg_check_modules()s
-# real system opus/ffmpeg (separately from whatever copy ntgcalls itself
-# also fetches for its own internal use), confirmed live via configure
-# output ("Checking for module 'opus'" / "-- Found opus, version 1.3.1").
-# libasound2-dev IS kept, unlike the rest of the removed audio/X11 cluster
-# above - real, live CI failure caught this (build (bookworm, 12) of the
-# first actual dpkg-buildpackage test run of this migration):
-# ntgcalls/include/ntgcalls/devices/alsa_device_module.hpp directly
-# #include <alsa/asoundlib.h> for type declarations, even though the
-# corresponding .cpp only ever dlopen()s libasound.so at runtime via a
-# LATESYM_GET symbol table (never actually linked at build time) - the
-# header still needs to compile regardless of whether tg2sip-webrtc itself
-# ever instantiates that device class (it doesn't - external audio source
-# only). Checked pulse_device_module.hpp/pulse_connection.cpp the same way
-# afterward: neither includes a raw <pulse/...> system header (both only
-# use WebRTC's own vendored modules/audio_device/linux/audio_device_pulse_linux.h,
-# already covered by the -isystem paths ntgcalls' own CMake sets up) - so
-# libpulse-dev genuinely doesn't need to come back, confirmed by the same
-# CI run compiling those two files successfully before failing on ALSA.
+# one library over). libopus-dev/libavcodec-dev/etc kept regardless of the
+# theory above - tg2sip-webrtc's own CMakeLists.txt genuinely
+# pkg_check_modules()s real system opus/ffmpeg (separately from whatever
+# copy ntgcalls itself also fetches for its own internal use), confirmed
+# live via configure output ("Checking for module 'opus'" / "-- Found
+# opus, version 1.3.1").
 #
-# clang-<N>/libc++-<N>-dev/libc++abi-<N>-dev deliberately NOT listed here:
-# Debian's own apt doesn't carry them (bookworm's apt clang is 14, too old
-# to even compile ntgcalls' vendored libc++ headers - real, confirmed
-# compile errors, not just a warning), they only exist via apt.llvm.org,
-# which has to be added as an apt source *before* `apt-get build-dep` can
-# resolve anything from it - see the "Install newer Clang" step in
-# .github/workflows/deb-packages.yml, which installs them explicitly ahead
-# of the build-dep step below rather than through this file.
+# clang-<N>/libc++-<N>-dev/libc++abi-<N>-dev/libclang-rt-<N>-dev
+# deliberately NOT listed here: Debian's own apt doesn't carry them
+# (bookworm's apt clang is 14, too old to even compile ntgcalls' vendored
+# libc++ headers - real, confirmed compile errors, not just a warning),
+# they only exist via apt.llvm.org, which has to be added as an apt source
+# *before* `apt-get build-dep` can resolve anything from it - see the
+# "Install newer Clang" step in .github/workflows/deb-packages.yml, which
+# installs them explicitly ahead of the build-dep step below rather than
+# through this file.
 #
-# gperf/yasm/nasm kept even though nothing in this project's own
-# CMakeLists.txt/pkg-config lookups references them directly (unlike the
-# ones actually removed above) - PJSIP still builds several of its own
-# bundled third-party codecs (libsrtp, speex, resample, ...) from source in
-# debian/rules, and unlike the X11/audio/libvpx/libabsl cluster above,
-# whether any of those still need gperf/yasm/nasm for assembly-optimized
-# paths wasn't specifically checked. Cheap to keep, unlike the packages
-# actually pulled above; only remove after actually confirming PJSIP's own
-# build doesn't reach for them.
+# gperf/yasm/nasm kept - PJSIP still builds several of its own bundled
+# third-party codecs (libsrtp, speex, resample, ...) from source in
+# debian/rules, and whether any of those still need gperf/yasm/nasm for
+# assembly-optimized paths hasn't been specifically checked either way
+# (no CI failure yet, but per the pattern above that's not strong
+# evidence on its own - just not worth removing preemptively like the
+# jpeg/pipewire/libevent cluster was restored, since these were never
+# actually removed to begin with).
 Build-Depends: debhelper-compat (= 13),
  dh-exec,
  git,
@@ -71,7 +77,18 @@ Build-Depends: debhelper-compat (= 13),
  gperf,
  yasm,
  nasm,
+ libjpeg-dev,
  libasound2-dev,
+ libx11-dev,
+ libxext-dev,
+ libxdamage-dev,
+ libxfixes-dev,
+ libxrender-dev,
+ libxrandr-dev,
+ libxtst-dev,
+ libxcomposite-dev,
+ libevent-dev,
+ libpipewire-0.3-dev,
  libopus-dev,
  libavcodec-dev,
  libavformat-dev,
