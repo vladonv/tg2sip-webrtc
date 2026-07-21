@@ -22,8 +22,6 @@
 namespace sml = boost::sml;
 namespace td_api = td::td_api;
 
-#define CALL_PROTO_MIN_LAYER 65
-
 volatile sig_atomic_t e_flag = 0;
 
 namespace state_machine::guards {
@@ -213,7 +211,7 @@ namespace state_machine::actions {
                 ctx.tg_call_id,
                 td_api::make_object<td_api::callProtocol>(settings.udp_p2p(),
                                                           settings.udp_reflector(),
-                                                          CALL_PROTO_MIN_LAYER,
+                                                          voip::TgCallsController::GetConnectionMinLayer(),
                                                           voip::TgCallsController::GetConnectionMaxLayer(),
                                                           voip::TgCallsController::Versions())
         )).get();
@@ -311,65 +309,63 @@ namespace state_machine::actions {
                                                           OptionalQueue<state_machine::events::Event> &internal_events,
                                                           std::shared_ptr<spdlog::logger> logger) const {
 
-        DEBUG(logger, "[{}] creating tgcalls voip for TG #{}", ctx.id(), ctx.tg_call_id);
+        DEBUG(logger, "[{}] creating ntgcalls voip for TG #{}", ctx.id(), ctx.tg_call_id);
 
         const auto &state = static_cast<const td_api::callStateReady &>(*event->call_->state_);
 
         std::array<uint8_t, 256> encryption_key{};
         memcpy(encryption_key.data(), state.encryption_key_.data(), 256);
 
-        std::vector<tgcalls::Endpoint> endpoints;
-        std::vector<tgcalls::RtcServer> rtc_servers;
+        // ntgcalls has a single unified RTCServer shape (see voip::RtcServer
+        // in controller.h) - unlike the old tgcalls backend, no separate
+        // Endpoint/RtcServer split.
+        std::vector<voip::RtcServer> rtc_servers;
         for (const auto &server : state.servers_) {
             if (server->type_->get_id() == td_api::callServerTypeTelegramReflector::ID) {
                 auto reflector = static_cast<const td_api::callServerTypeTelegramReflector *>(server->type_.get());
 
-                tgcalls::Endpoint endpoint;
-                endpoint.endpointId = server->id_;
-                endpoint.host.ipv4 = server->ip_address_;
-                endpoint.host.ipv6 = server->ipv6_address_;
-                endpoint.port = static_cast<uint16_t>(server->port_);
-                endpoint.type = tgcalls::EndpointType::UdpRelay;
-                memcpy(endpoint.peerTag, reflector->peer_tag_.data(), 16);
-                endpoints.emplace_back(endpoint);
+                voip::RtcServer rtc_server;
+                rtc_server.id = server->id_;
+                rtc_server.ipv4 = server->ip_address_;
+                rtc_server.ipv6 = server->ipv6_address_;
+                rtc_server.port = static_cast<uint16_t>(server->port_);
+                rtc_server.peer_tag.assign(reflector->peer_tag_.begin(), reflector->peer_tag_.end());
+                rtc_servers.emplace_back(std::move(rtc_server));
             } else if (server->type_->get_id() == td_api::callServerTypeWebrtc::ID) {
                 auto webrtc_server = static_cast<const td_api::callServerTypeWebrtc *>(server->type_.get());
                 if (!webrtc_server->supports_turn_ && !webrtc_server->supports_stun_) {
                     continue;
                 }
 
-                tgcalls::RtcServer rtc_server;
-                rtc_server.host = !server->ip_address_.empty() ? server->ip_address_ : server->ipv6_address_;
+                voip::RtcServer rtc_server;
+                rtc_server.id = server->id_;
+                rtc_server.ipv4 = server->ip_address_;
+                rtc_server.ipv6 = server->ipv6_address_;
                 rtc_server.port = static_cast<uint16_t>(server->port_);
-                rtc_server.login = webrtc_server->username_;
+                rtc_server.username = webrtc_server->username_;
                 rtc_server.password = webrtc_server->password_;
-                rtc_server.isTurn = webrtc_server->supports_turn_;
-                rtc_servers.emplace_back(rtc_server);
+                rtc_server.turn = webrtc_server->supports_turn_;
+                rtc_server.stun = webrtc_server->supports_stun_;
+                rtc_servers.emplace_back(std::move(rtc_server));
             }
         }
 
-        std::unique_ptr<tgcalls::Proxy> voip_proxy;
+        // ntgcalls has no proxy support at all (checked the full API
+        // surface) - voip_proxy_* settings are inert with this backend.
         if (settings.voip_proxy_enabled()) {
-            voip_proxy = std::make_unique<tgcalls::Proxy>();
-            voip_proxy->host = settings.voip_proxy_address();
-            voip_proxy->port = settings.voip_proxy_port();
-            voip_proxy->login = settings.voip_proxy_username();
-            voip_proxy->password = settings.voip_proxy_password();
+            logger->warn("[{}] voip_proxy_* is configured but has no effect - "
+                        "ntgcalls has no proxy support", ctx.id());
         }
 
         auto ctx_id = ctx.id();
         auto controller = std::make_shared<voip::TgCallsController>(
+                ctx.user_id,
                 encryption_key,
                 event->call_->is_outgoing_,
-                std::move(endpoints),
                 std::move(rtc_servers),
                 settings.udp_p2p(),
-                settings.aec_enabled(),
-                settings.ns_enabled(),
-                settings.agc_enabled(),
-                std::move(voip_proxy),
                 [&internal_events, ctx_id](const std::vector<uint8_t> &data) {
-                    // Called from tgcalls' own network thread - must not
+                    // Called from ntgcalls' own worker thread(s) - must not
                     // touch tg::Client directly from here (see the
                     // SignalingDataEmitted comment in gateway.h).
                     internal_events.emplace(state_machine::events::SignalingDataEmitted{ctx_id, data});
@@ -445,10 +441,18 @@ namespace state_machine::actions {
     }
 
     void DialTg::dial_by_id(int64_t id) {
+        // dial_by_username()/dial_by_phone() both resolve to a numeric TG
+        // user id and funnel through here with a purely local `id` -
+        // ctx_->user_id itself was never populated for those two paths
+        // (only the numeric-extension path in AcceptIncomingSip sets it
+        // directly). CreateTgVoip needs ctx.user_id as ntgcalls' chatId key
+        // regardless of which path resolved it, so store it here too.
+        ctx_->user_id = id;
+
         auto response = tg_client_->send_query_async(td_api::make_object<td_api::createCall>(
                 id /* id */,
                 td_api::make_object<td_api::callProtocol>(settings_->udp_p2p(), settings_->udp_reflector(),
-                                                          CALL_PROTO_MIN_LAYER,
+                                                          voip::TgCallsController::GetConnectionMinLayer(),
                                                           voip::TgCallsController::GetConnectionMaxLayer(),
                                                           voip::TgCallsController::Versions()),
                 false /* is_video_ */)

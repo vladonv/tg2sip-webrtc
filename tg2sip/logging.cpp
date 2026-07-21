@@ -18,10 +18,43 @@
 
 #include <iostream>
 #include <td/telegram/Log.h>
-#include <tgcalls/Instance.h>
+#include <ntgcalls.h>
 #include <spdlog/sinks/ansicolor_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 #include "logging.h"
+
+namespace {
+
+    // ntg_register_logger's callback type takes no userData (unlike every
+    // other ntgcalls C-API callback) - must be a plain free function, no
+    // closure capture possible. Routed into the "tgcalls" spdlog channel -
+    // kept that name (rather than renaming to "ntgcalls") since it's also
+    // the tg2sip.conf log-level setting name (tgcalls_log_level()) and
+    // renaming would be a needless config-compatibility break for what's
+    // purely a cosmetic channel name.
+    void NtgCallsLogCallback(const ntg_log_message_struct message) {
+        auto logger = spdlog::get("tgcalls");
+        if (!logger) {
+            return;
+        }
+        switch (message.level) {
+            case NTG_LOG_DEBUG:
+                logger->debug(message.message);
+                break;
+            case NTG_LOG_WARNING:
+                logger->warn(message.message);
+                break;
+            case NTG_LOG_ERROR:
+                logger->error(message.message);
+                break;
+            case NTG_LOG_INFO:
+            default:
+                logger->info(message.message);
+                break;
+        }
+    }
+
+}
 
 void init_logging(Settings &settings) {
 
@@ -66,7 +99,5 @@ void init_logging(Settings &settings) {
     spdlog::get("pjsip")->set_level(static_cast<spdlog::level::level_enum>(settings.pjsip_log_level()));
     spdlog::get("tgcalls")->set_level(static_cast<spdlog::level::level_enum>(settings.tgcalls_log_level()));
 
-    tgcalls::SetLoggingFunction([](const std::string &message) {
-        spdlog::get("tgcalls")->info(message);
-    });
+    ntg_register_logger(&NtgCallsLogCallback);
 }

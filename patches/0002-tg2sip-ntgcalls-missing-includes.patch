@@ -1,0 +1,36 @@
+diff --git a/wrtc/src/models/i420_image_data.cpp b/wrtc/src/models/i420_image_data.cpp
+index d3f00ce2..19650d43 100644
+--- a/wrtc/src/models/i420_image_data.cpp
++++ b/wrtc/src/models/i420_image_data.cpp
+@@ -3,6 +3,7 @@
+ //
+ 
+ #include <wrtc/models/i420_image_data.hpp>
++#include <cstring>
+ 
+ namespace wrtc {
+     size_t i420ImageData::sizeOfLuminancePlane() const {
+diff --git a/wrtc/src/utils/bignum.cpp b/wrtc/src/utils/bignum.cpp
+index 6274d1d7..357ae18e 100644
+--- a/wrtc/src/utils/bignum.cpp
++++ b/wrtc/src/utils/bignum.cpp
+@@ -3,6 +3,7 @@
+ //
+ 
+ #include <wrtc/utils/bignum.hpp>
++#include <utility>
+ 
+ namespace openssl {
+     void BigNum::clear() const {
+diff --git a/wrtc/src/utils/encryption.cpp b/wrtc/src/utils/encryption.cpp
+index 24fc1f93..6ddbb207 100644
+--- a/wrtc/src/utils/encryption.cpp
++++ b/wrtc/src/utils/encryption.cpp
+@@ -6,6 +6,7 @@
+ 
+ #include <openssl/aes.h>
+ #include <climits>
++#include <cstring>
+ 
+ namespace openssl {
+     bytes::vector Sha256::Digest(const bytes::const_span data) {

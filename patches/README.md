@@ -108,3 +108,56 @@ UDP relay, but needs a new `rtc::AsyncPacketSocket` and confirmation the
 target proxy actually supports the UDP ASSOCIATE command), or (b) a
 transparent/TProxy-mode proxy at the network/router level instead of
 app-level SOCKS5, which needs no tg2sip-webrtc code changes at all.
+
+## 0001-tg2sip-ntgcalls-add_subdirectory-fixes.patch, 0002-tg2sip-ntgcalls-missing-includes.patch
+
+Applied to the `third_party/ntgcalls` submodule (`github.com/pytgcalls/ntgcalls`,
+pinned at `v2.2.5` - the replacement calling backend, see the ntgcalls
+migration plan/memory: `project_tg2sip_ntgcalls_migration_feasibility`).
+Found while getting a standalone scratch consumer of ntgcalls to link
+before touching tg2sip's own source - ntgcalls has apparently never actually
+been exercised as an `add_subdirectory()` dependency by its own maintainers
+(only as a standalone top-level build via `python3 setup.py build_lib`),
+so every one of these is a real, `add_subdirectory()`-specific bug, not
+anything to do with tg2sip itself:
+
+- `CMakeLists.txt` never `include()`s `cmake/PlatformUtils.cmake`,
+  `cmake/DownloadProject.cmake`, `cmake/GitUtils.cmake` even though it calls
+  functions those files define (`GetProperty`, `DownloadProject`,
+  `GitClone`) - only worked in upstream's own build via some undocumented
+  path. Fixed by adding the missing `include()` calls.
+- `cmake/PlatformUtils.cmake`'s `setup_platform_flags()` resolves a
+  `cmake_dir` variable via `${CMAKE_SOURCE_DIR}/cmake` - under
+  `add_subdirectory()`, `CMAKE_SOURCE_DIR` is fixed to the *outermost*
+  project (tg2sip-webrtc's own root), not ntgcalls' - so this always
+  resolved to the wrong path. Fixed with `CMAKE_CURRENT_LIST_DIR` instead.
+- Several `Find*.cmake` files (`FindWebRTC.cmake`, `FindGLib.cmake`,
+  `FindX11.cmake`, `FindBoost.cmake`, `FindMesa.cmake`, `FindOpenH264.cmake`,
+  `FindFFmpeg.cmake`) create `IMPORTED` targets without `GLOBAL` - invisible
+  outside the directory scope they're defined in, so tg2sip-webrtc's own
+  top-level `target_link_libraries()` calls against them fail to resolve.
+  Fixed by adding `GLOBAL` to each.
+- `cmake/Linux.cmake` is the only platform file (unlike `Toolchain.cmake`
+  for Windows, `Android.cmake`, `macOS.cmake`) missing
+  `_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE` in its
+  `target_compile_definitions` - without it, libc++'s own
+  `__configuration/hardening.h` hits a hard `#error`. Fixed by adding the
+  same define the other platforms already have.
+- `wrtc/src/models/i420_image_data.cpp`, `wrtc/src/utils/bignum.cpp`,
+  `wrtc/src/utils/encryption.cpp` use `std::memcpy`/`std::move` etc without
+  directly including `<cstring>`/`<utility>` - relied on transitive includes
+  that don't hold under every libc++ configuration. Fixed with explicit
+  includes.
+
+Not fixed by a patch (a real, unavoidable requirement handled directly in the
+ntgcalls `add_subdirectory()` block in the root `CMakeLists.txt` instead):
+ntgcalls' own C++ sources need C++20 and WebRTC's own headers need
+`-isystem` rather than plain `-I` to avoid a GCC/Clang `-Wchanges-meaning`
+hard error - both scoped to ntgcalls' own targets only. tg2sip's own code
+(`controller.cpp` etc) only includes the flat C API header
+(`third_party/ntgcalls/include/ntgcalls.h` - plain C, `extern "C"`, no C++
+types in any public signature) precisely so it does *not* need to adopt
+C++20 or ntgcalls' Chromium-libc++ toolchain itself - see the "Boundary
+decision" section of the ntgcalls migration plan
+(`/home/vlad/.claude/plans/jaunty-roaming-cat.md`) for why that boundary
+was chosen.

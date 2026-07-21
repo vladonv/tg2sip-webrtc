@@ -42,13 +42,13 @@ namespace state_machine::events {
         pj::CallOpParam prm;
     };
 
-    // Outbound tgcalls signaling data (Descriptor::signalingDataEmitted)
-    // fires from tgcalls' own network thread, never the Gateway loop thread
-    // - routed through internal_events_ (already mutex-protected) instead
-    // of calling tg::Client directly, same reasoning as the "send_query_async
-    // from TG thread will cause deadlock" guard in tg.cpp. Not an sml
-    // transition event: handled by a direct Gateway::process_event overload
-    // that bypasses the state machine entirely.
+    // Outbound ntgcalls signaling data (ntg_on_signaling_data) fires from
+    // ntgcalls' own worker thread(s), never the Gateway loop thread - routed
+    // through internal_events_ (already mutex-protected) instead of calling
+    // tg::Client directly, same reasoning as the "send_query_async from TG
+    // thread will cause deadlock" guard in tg.cpp. Not an sml transition
+    // event: handled by a direct Gateway::process_event overload that
+    // bypasses the state machine entirely.
     struct SignalingDataEmitted {
         std::string ctx_id;
         std::vector<uint8_t> data;

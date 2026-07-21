@@ -1,0 +1,344 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index db957054..3a4771c9 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -16,6 +16,9 @@ add_custom_target(clean_objects
+ 
+ project(ntgcalls VERSION 2.2.5 LANGUAGES C CXX)
+ include(cmake/VersionUtil.cmake)
++include(cmake/PlatformUtils.cmake)
++include(cmake/DownloadProject.cmake)
++include(cmake/GitUtils.cmake)
+ 
+ if (MACOS)
+     enable_language(OBJCXX)
+diff --git a/cmake/FindBoost.cmake b/cmake/FindBoost.cmake
+index 53db3337..54b9f026 100644
+--- a/cmake/FindBoost.cmake
++++ b/cmake/FindBoost.cmake
+@@ -55,7 +55,7 @@ DownloadProject(
+ )
+ 
+ if (NOT TARGET Boost::json)
+-    add_library(Boost::json STATIC IMPORTED)
++    add_library(Boost::json STATIC IMPORTED GLOBAL)
+     set_target_properties(Boost::json PROPERTIES
+         INTERFACE_INCLUDE_DIRECTORIES "${BOOST_SRC}/include"
+         IMPORTED_LINK_INTERFACE_LANGUAGES CXX
+@@ -65,7 +65,7 @@ endif ()
+ 
+ if (NOT ANDROID)
+     if (NOT TARGET Boost::atomic)
+-        add_library(Boost::atomic STATIC IMPORTED)
++        add_library(Boost::atomic STATIC IMPORTED GLOBAL)
+         set_target_properties(Boost::atomic PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${BOOST_SRC}/include"
+             IMPORTED_LINK_INTERFACE_LANGUAGES CXX
+@@ -74,7 +74,7 @@ if (NOT ANDROID)
+     endif ()
+ 
+     if (NOT TARGET Boost::context)
+-        add_library(Boost::context STATIC IMPORTED)
++        add_library(Boost::context STATIC IMPORTED GLOBAL)
+         set_target_properties(Boost::context PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${BOOST_SRC}/include"
+             IMPORTED_LINK_INTERFACE_LANGUAGES CXX
+@@ -83,7 +83,7 @@ if (NOT ANDROID)
+     endif ()
+ 
+     if (NOT TARGET Boost::date_time)
+-        add_library(Boost::date_time STATIC IMPORTED)
++        add_library(Boost::date_time STATIC IMPORTED GLOBAL)
+         set_target_properties(Boost::date_time PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${BOOST_SRC}/include"
+             IMPORTED_LINK_INTERFACE_LANGUAGES CXX
+@@ -92,7 +92,7 @@ if (NOT ANDROID)
+     endif ()
+ 
+     if (NOT TARGET Boost::filesystem)
+-        add_library(Boost::filesystem STATIC IMPORTED)
++        add_library(Boost::filesystem STATIC IMPORTED GLOBAL)
+         set_target_properties(Boost::filesystem PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${BOOST_SRC}/include"
+             IMPORTED_LINK_INTERFACE_LANGUAGES CXX
+@@ -102,7 +102,7 @@ if (NOT ANDROID)
+     endif ()
+ 
+     if(NOT TARGET Boost::process)
+-        add_library(Boost::process STATIC IMPORTED)
++        add_library(Boost::process STATIC IMPORTED GLOBAL)
+         set_target_properties(Boost::process PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${BOOST_SRC}/include"
+             IMPORTED_LINK_INTERFACE_LANGUAGES CXX
+diff --git a/cmake/FindFFmpeg.cmake b/cmake/FindFFmpeg.cmake
+index 0018d5af..776e68ff 100644
+--- a/cmake/FindFFmpeg.cmake
++++ b/cmake/FindFFmpeg.cmake
+@@ -54,26 +54,26 @@ DownloadProject(
+ 
+ if (LINUX)
+     if (NOT TARGET intel::va-drm)
+-        add_library(intel::va-drm STATIC IMPORTED)
++        add_library(intel::va-drm STATIC IMPORTED GLOBAL)
+         set_target_properties(intel::va-drm PROPERTIES
+                 IMPORTED_LOCATION "${FFMPEG_LIB_DIR}/${VA_DRM_LIB}")
+     endif ()
+ 
+     if (NOT TARGET intel::va)
+-        add_library(intel::va STATIC IMPORTED)
++        add_library(intel::va STATIC IMPORTED GLOBAL)
+         set_target_properties(intel::va PROPERTIES
+                 IMPORTED_LOCATION "${FFMPEG_LIB_DIR}/${VA_LIB}")
+     endif ()
+ 
+     if (NOT TARGET mesa::vdpau)
+-        add_library(mesa::vdpau STATIC IMPORTED)
++        add_library(mesa::vdpau STATIC IMPORTED GLOBAL)
+         set_target_properties(mesa::vdpau PROPERTIES
+                 IMPORTED_LOCATION "${FFMPEG_LIB_DIR}/${VDPAU_LIB}")
+     endif ()
+ endif ()
+ 
+ if(NOT TARGET ffmpeg::avcodec)
+-    add_library(ffmpeg::avcodec STATIC IMPORTED)
++    add_library(ffmpeg::avcodec STATIC IMPORTED GLOBAL)
+     set_target_properties(ffmpeg::avcodec PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${FFMPEG_SRC}/include"
+             IMPORTED_LOCATION "${FFMPEG_LIB_DIR}/${AVCODEC_LIB}")
+@@ -84,7 +84,7 @@ if(NOT TARGET ffmpeg::avcodec)
+ endif ()
+ 
+ if(NOT TARGET ffmpeg::avformat)
+-    add_library(ffmpeg::avformat STATIC IMPORTED)
++    add_library(ffmpeg::avformat STATIC IMPORTED GLOBAL)
+     set_target_properties(ffmpeg::avformat PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${FFMPEG_SRC}/include"
+             IMPORTED_LOCATION "${FFMPEG_LIB_DIR}/${AVFORMAT_LIB}")
+@@ -96,7 +96,7 @@ if(NOT TARGET ffmpeg::avformat)
+ endif ()
+ 
+ if(NOT TARGET ffmpeg::avutil)
+-    add_library(ffmpeg::avutil STATIC IMPORTED)
++    add_library(ffmpeg::avutil STATIC IMPORTED GLOBAL)
+     set_target_properties(ffmpeg::avutil PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${FFMPEG_SRC}/include"
+             IMPORTED_LOCATION "${FFMPEG_LIB_DIR}/${AVUTIL_LIB}")
+@@ -107,7 +107,7 @@ if(NOT TARGET ffmpeg::avutil)
+ endif ()
+ 
+ if (NOT TARGET ffmpeg::swresample)
+-    add_library(ffmpeg::swresample STATIC IMPORTED)
++    add_library(ffmpeg::swresample STATIC IMPORTED GLOBAL)
+     set_target_properties(ffmpeg::swresample PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${FFMPEG_SRC}/include"
+             IMPORTED_LOCATION "${FFMPEG_LIB_DIR}/${SWRESAMPLE_LIB}")
+diff --git a/cmake/FindGLib.cmake b/cmake/FindGLib.cmake
+index 49f308fc..ac29ffea 100644
+--- a/cmake/FindGLib.cmake
++++ b/cmake/FindGLib.cmake
+@@ -32,31 +32,31 @@ DownloadProject(
+ )
+ 
+ if(NOT TARGET gnu::expat)
+-    add_library(gnu::expat STATIC IMPORTED)
++    add_library(gnu::expat STATIC IMPORTED GLOBAL)
+     set_target_properties(gnu::expat PROPERTIES
+             IMPORTED_LOCATION "${GLIB_SRC}/lib/${EXPAT_LIB}")
+ endif ()
+ 
+ if(NOT TARGET gnu::libffi)
+-    add_library(gnu::libffi STATIC IMPORTED)
++    add_library(gnu::libffi STATIC IMPORTED GLOBAL)
+     set_target_properties(gnu::libffi PROPERTIES
+             IMPORTED_LOCATION "${GLIB_SRC}/lib/${FFI_LIB}")
+ endif ()
+ 
+ if(NOT TARGET gnu::pcre2)
+-    add_library(gnu::pcre2 STATIC IMPORTED)
++    add_library(gnu::pcre2 STATIC IMPORTED GLOBAL)
+     set_target_properties(gnu::pcre2 PROPERTIES
+             IMPORTED_LOCATION "${GLIB_SRC}/lib/${PCRE2_LIB}")
+ endif ()
+ 
+ if(NOT TARGET gnome::gmodule-2.0)
+-    add_library(gnome::gmodule-2.0 STATIC IMPORTED)
++    add_library(gnome::gmodule-2.0 STATIC IMPORTED GLOBAL)
+     set_target_properties(gnome::gmodule-2.0 PROPERTIES
+             IMPORTED_LOCATION "${GLIB_SRC}/lib/${GMODULE_2_0_LIB}")
+ endif ()
+ 
+ if(NOT TARGET gnome::glib-2.0)
+-    add_library(gnome::glib-2.0 STATIC IMPORTED)
++    add_library(gnome::glib-2.0 STATIC IMPORTED GLOBAL)
+     set_target_properties(gnome::glib-2.0 PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${GLIB_SRC}/include/glib-2.0"
+             IMPORTED_LOCATION "${GLIB_SRC}/lib/${GLIB_2_0_LIB}")
+@@ -64,7 +64,7 @@ if(NOT TARGET gnome::glib-2.0)
+ endif ()
+ 
+ if(NOT TARGET gnome::gio-2.0)
+-    add_library(gnome::gio-2.0 STATIC IMPORTED)
++    add_library(gnome::gio-2.0 STATIC IMPORTED GLOBAL)
+     set_target_properties(gnome::gio-2.0 PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${GLIB_SRC}/include/glib-2.0"
+             IMPORTED_LOCATION "${GLIB_SRC}/lib/${GIO_2_0_LIB}")
+@@ -72,7 +72,7 @@ if(NOT TARGET gnome::gio-2.0)
+ endif ()
+ 
+ if(NOT TARGET gnome::gobject-2.0)
+-    add_library(gnome::gobject-2.0 STATIC IMPORTED)
++    add_library(gnome::gobject-2.0 STATIC IMPORTED GLOBAL)
+     set_target_properties(gnome::gobject-2.0 PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${GLIB_SRC}/include/glib-2.0"
+             IMPORTED_LOCATION "${GLIB_SRC}/lib/${GOBJECT_2_0_LIB}")
+diff --git a/cmake/FindMesa.cmake b/cmake/FindMesa.cmake
+index 7b1d4434..217e3f50 100644
+--- a/cmake/FindMesa.cmake
++++ b/cmake/FindMesa.cmake
+@@ -27,14 +27,14 @@ DownloadProject(
+ )
+ 
+ if(NOT TARGET mesa::drm)
+-    add_library(mesa::drm STATIC IMPORTED)
++    add_library(mesa::drm STATIC IMPORTED GLOBAL)
+     set_target_properties(mesa::drm PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${MESA_SRC}/include"
+             IMPORTED_LOCATION "${MESA_SRC}/lib/${DRM_LIB}")
+ endif ()
+ 
+ if(NOT TARGET mesa::gbm)
+-    add_library(mesa::gbm STATIC IMPORTED)
++    add_library(mesa::gbm STATIC IMPORTED GLOBAL)
+     set_target_properties(mesa::gbm PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${MESA_SRC}/include"
+             IMPORTED_LOCATION "${MESA_SRC}/lib/${GBM_LIB}")
+diff --git a/cmake/FindOpenH264.cmake b/cmake/FindOpenH264.cmake
+index 5d2185b3..db8cb928 100644
+--- a/cmake/FindOpenH264.cmake
++++ b/cmake/FindOpenH264.cmake
+@@ -35,7 +35,7 @@ if(NOT TARGET cisco::OpenH264)
+         DOWNLOAD_DIR ${OPENH264_DIR}/download
+         SOURCE_DIR ${OPENH264_SRC}
+     )
+-    add_library(cisco::OpenH264 STATIC IMPORTED)
++    add_library(cisco::OpenH264 STATIC IMPORTED GLOBAL)
+ 
+     set_target_properties(cisco::OpenH264 PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${OPENH264_SRC}/include"
+diff --git a/cmake/FindWebRTC.cmake b/cmake/FindWebRTC.cmake
+index 982201da..2411d621 100644
+--- a/cmake/FindWebRTC.cmake
++++ b/cmake/FindWebRTC.cmake
+@@ -60,7 +60,7 @@ if(NOT TARGET WebRTC::webrtc)
+         SOURCE_DIR ${WEBRTC_SRC}
+     )
+ 
+-    add_library(WebRTC::webrtc STATIC IMPORTED)
++    add_library(WebRTC::webrtc STATIC IMPORTED GLOBAL)
+ 
+     set(_DIRS
+         ${WEBRTC_INCLUDE}
+diff --git a/cmake/FindX11.cmake b/cmake/FindX11.cmake
+index f4a9d4c9..449bcdfe 100644
+--- a/cmake/FindX11.cmake
++++ b/cmake/FindX11.cmake
+@@ -35,20 +35,20 @@ DownloadProject(
+ )
+ 
+ if(NOT TARGET xorg::Xau)
+-    add_library(xorg::Xau STATIC IMPORTED)
++    add_library(xorg::Xau STATIC IMPORTED GLOBAL)
+     set_target_properties(xorg::Xau PROPERTIES
+             IMPORTED_LOCATION "${X11_SRC}/lib/${XAU_LIB}")
+ endif ()
+ 
+ if(NOT TARGET xorg::xcb)
+-    add_library(xorg::xcb STATIC IMPORTED)
++    add_library(xorg::xcb STATIC IMPORTED GLOBAL)
+     set_target_properties(xorg::xcb PROPERTIES
+             IMPORTED_LOCATION "${X11_SRC}/lib/${XCB_LIB}")
+     target_link_libraries(xorg::xcb INTERFACE xorg::Xau)
+ endif ()
+ 
+ if(NOT TARGET xorg::X11)
+-    add_library(xorg::X11 STATIC IMPORTED)
++    add_library(xorg::X11 STATIC IMPORTED GLOBAL)
+     set_target_properties(xorg::X11 PROPERTIES
+             INTERFACE_INCLUDE_DIRECTORIES "${X11_SRC}/include"
+             IMPORTED_LOCATION "${X11_SRC}/lib/${X11_LIB}")
+@@ -56,45 +56,45 @@ if(NOT TARGET xorg::X11)
+ endif ()
+ 
+ if(NOT TARGET xorg::Xcomposite)
+-    add_library(xorg::Xcomposite STATIC IMPORTED)
++    add_library(xorg::Xcomposite STATIC IMPORTED GLOBAL)
+     set_target_properties(xorg::Xcomposite PROPERTIES
+             IMPORTED_LOCATION "${X11_SRC}/lib/${XCOMPOSITE_LIB}")
+ endif ()
+ 
+ if(NOT TARGET xorg::Xdamage)
+-    add_library(xorg::Xdamage STATIC IMPORTED)
++    add_library(xorg::Xdamage STATIC IMPORTED GLOBAL)
+     set_target_properties(xorg::Xdamage PROPERTIES
+             IMPORTED_LOCATION "${X11_SRC}/lib/${XDAMAGE_LIB}")
+ endif ()
+ 
+ if(NOT TARGET xorg::Xext)
+-    add_library(xorg::Xext STATIC IMPORTED)
++    add_library(xorg::Xext STATIC IMPORTED GLOBAL)
+     set_target_properties(xorg::Xext PROPERTIES
+             IMPORTED_LOCATION "${X11_SRC}/lib/${XEXT_LIB}")
+ endif ()
+ 
+ if(NOT TARGET xorg::Xfixes)
+-    add_library(xorg::Xfixes STATIC IMPORTED)
++    add_library(xorg::Xfixes STATIC IMPORTED GLOBAL)
+     set_target_properties(xorg::Xfixes PROPERTIES
+             IMPORTED_LOCATION "${X11_SRC}/lib/${XFIXES_LIB}")
+ endif ()
+ 
+ if(NOT TARGET xorg::Xrender)
+-    add_library(xorg::Xrender STATIC IMPORTED)
++    add_library(xorg::Xrender STATIC IMPORTED GLOBAL)
+     set_target_properties(xorg::Xrender PROPERTIES
+             IMPORTED_LOCATION "${X11_SRC}/lib/${XRENDER_LIB}")
+     target_link_libraries(xorg::Xrender INTERFACE xorg::X11)
+ endif ()
+ 
+ if(NOT TARGET xorg::Xrandr)
+-    add_library(xorg::Xrandr STATIC IMPORTED)
++    add_library(xorg::Xrandr STATIC IMPORTED GLOBAL)
+     set_target_properties(xorg::Xrandr PROPERTIES
+             IMPORTED_LOCATION "${X11_SRC}/lib/${XRANDR_LIB}")
+     target_link_libraries(xorg::Xrandr INTERFACE xorg::Xrender)
+ endif ()
+ 
+ if(NOT TARGET xorg::Xtst)
+-    add_library(xorg::Xtst STATIC IMPORTED)
++    add_library(xorg::Xtst STATIC IMPORTED GLOBAL)
+     set_target_properties(xorg::Xtst PROPERTIES
+             IMPORTED_LOCATION "${X11_SRC}/lib/${XTST_LIB}")
+ endif ()
+\ No newline at end of file
+diff --git a/cmake/Linux.cmake b/cmake/Linux.cmake
+index af9a8273..6f253aba 100644
+--- a/cmake/Linux.cmake
++++ b/cmake/Linux.cmake
+@@ -4,6 +4,7 @@ target_compile_definitions(${target_name} PUBLIC
+     _LIBCPP_ABI_NAMESPACE=Cr
+     _LIBCPP_ABI_VERSION=2
+     _LIBCPP_DISABLE_AVAILABILITY
++    _LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE
+     BOOST_NO_CXX98_FUNCTION_BASE
+     NDEBUG
+     RTC_ENABLE_H265
+diff --git a/cmake/PlatformUtils.cmake b/cmake/PlatformUtils.cmake
+index d0125e68..dd53b612 100644
+--- a/cmake/PlatformUtils.cmake
++++ b/cmake/PlatformUtils.cmake
+@@ -1,4 +1,4 @@
+-set(cmake_dir ${CMAKE_SOURCE_DIR}/cmake)
++set(cmake_dir ${CMAKE_CURRENT_LIST_DIR})
+ if(WIN32)
+     set(OS_NAME WINDOWS)
+ elseif (UNIX AND NOT APPLE)
