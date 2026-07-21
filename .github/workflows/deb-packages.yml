@@ -106,13 +106,23 @@ jobs:
       # hypothetical. This manual form needs only wget + gnupg (both
       # already present/installed earlier in this job) and is verified
       # working identically on both bookworm and trixie.
+      #
+      # libclang-rt-21-dev explicitly listed, not left to --no-install-recommends:
+      # it's only a Recommends of clang-21, not a hard Depends, so it silently
+      # didn't get pulled in - a real, live failure on the bookworm leg's
+      # first actual dpkg-buildpackage run, not a hypothetical. Without it,
+      # ld can't find libclang_rt.ubsan_standalone.a when linking TDLib's own
+      # test/run_all_tests (TDLib's CMakeLists.txt builds with
+      # -fsanitize=undefined by default even in a Release configure, and
+      # Ninja's generated "install" target depends on "all", so this gets
+      # built regardless of only ever wanting `--target install`).
       - name: Install newer Clang (apt.llvm.org, both Debian releases' own apt clang is too old/unpinned)
         run: |
           apt-get install -y --no-install-recommends wget gnupg
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg
           echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg] http://apt.llvm.org/${{ matrix.codename }}/ llvm-toolchain-${{ matrix.codename }}-21 main" > /etc/apt/sources.list.d/llvm.list
           apt-get update
-          apt-get install -y --no-install-recommends clang-21 libc++-21-dev libc++abi-21-dev
+          apt-get install -y --no-install-recommends clang-21 libc++-21-dev libc++abi-21-dev libclang-rt-21-dev
 
       - name: Install build dependencies (from debian/control)
         run: apt-get build-dep -y .
