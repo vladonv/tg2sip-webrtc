@@ -19,16 +19,25 @@ Your SIP PBX should be comaptible with `L16@48000` or `OPUS@48000` voice codec.
    for this fork yet - see `.github/workflows-disabled/`):
    ```
    git clone --recurse-submodules <this repo>
-   cmake -B build -DCMAKE_BUILD_TYPE=Release
-   cmake --build build
+   ./buildenv/build-clang-libcxx-deps.sh
+   cmake --preset clang-libcxx
+   cmake --build build-clang
    ```
-   Requires a C++17 compiler; PJSIP and TDLib need to be built from source
-   (see `buildenv/` for the versions/patches this fork builds against).
+   Requires Clang with libc++ (not GCC/libstdc++ - the `ntgcalls` calling
+   backend ships a prebuilt WebRTC static library that's unconditionally
+   compiled with Clang+libc++, so the whole toolchain has to match; Clang
+   19+ is the practical floor, Clang 20+ is what libc++ itself claims to
+   officially support and is warning-free). `buildenv/build-clang-libcxx-deps.sh`
+   rebuilds PJSIP, TDLib, and spdlog from source under that same toolchain
+   into a private prefix first (see `buildenv/` for the exact versions/
+   patches this fork builds against) - required before the `cmake --preset`
+   step above, since none of Debian's own apt packages for these are
+   ABI-compatible with `ntgcalls`' prebuilt WebRTC.
 
-2. The build drops a template at `build/tg2sip.conf.sample` (never overwritten in place - a fresh `cmake --build` always regenerates this exact file, so a real config never lives here). Copy it to one of the paths `tg2sip-webrtc` actually reads, in priority order:
+2. The build drops a template at `build-clang/tg2sip.conf.sample` (never overwritten in place - a fresh `cmake --build` always regenerates this exact file, so a real config never lives here). Copy it to one of the paths `tg2sip-webrtc` actually reads, in priority order:
    1. An explicit path passed as the first command-line argument: `tg2sip-webrtc /path/to/tg2sip.conf`
-   2. `/etc/tg2sip-webrtc/tg2sip.conf` (recommended for a real install - `sudo mkdir -p /etc/tg2sip-webrtc && sudo cp build/tg2sip.conf.sample /etc/tg2sip-webrtc/tg2sip.conf`)
-   3. `tg2sip.conf` in the current working directory (dev/in-tree convenience fallback - `cp build/tg2sip.conf.sample build/tg2sip.conf`, then run from `build/`)
+   2. `/etc/tg2sip-webrtc/tg2sip.conf` (recommended for a real install - `sudo mkdir -p /etc/tg2sip-webrtc && sudo cp build-clang/tg2sip.conf.sample /etc/tg2sip-webrtc/tg2sip.conf`)
+   3. `tg2sip.conf` in the current working directory (dev/in-tree convenience fallback - `cp build-clang/tg2sip.conf.sample build-clang/tg2sip.conf`, then run from `build-clang/`)
 3. Obtain `api_id` and `api_hash` tokens from [this](https://my.telegram.org) page and put them in your config file.
 4. Login into telegram with `tg2sip-gendb` app (same config-resolution rule as above)
 5. Set SIP server settings in your config file
