@@ -7,34 +7,38 @@ Maintainer: Vlad Vorobyev <vlad.vorobev@gmail.com>
 # Compared to the old tgcalls/tg_owt-based build: libabsl-dev and libvpx-dev
 # are gone for real (the tg_owt CMake block that consumed them no longer
 # exists, confirmed zero references anywhere in this project's own
-# CMakeLists.txt) and libpulse-dev is genuinely not needed (real CI build
-# confirmed pulse_device_module.hpp/pulse_connection.cpp compile clean
-# without it - both only use WebRTC's own vendored
-# audio_device_pulse_linux.h, no raw system <pulse/...> header anywhere).
+# CMakeLists.txt).
 #
-# Everything else from the old list (libjpeg-dev, libasound2-dev, the
-# libx11-dev/libxext-dev/.../libxcomposite-dev cluster, libpipewire-0.3-dev,
-# libevent-dev) is kept, even though ntgcalls' own CMake does fetch its own
-# copies of X11/mesa/glib/ffmpeg/openh264 (confirmed live via its configure
-# output - "-- glib v2.89.0", "-- libX11 v1.8.13", ...). The "ntgcalls
-# vendors its own copies, so the system package is unneeded" theory looked
-# solid from reading this project's own CMakeLists.txt alone, but two real
-# CI failures on the first actual dpkg-buildpackage runs of this migration
-# proved it wrong twice: ntgcalls/include/ntgcalls/devices/alsa_device_module.hpp
-# directly #includes <alsa/asoundlib.h> for type declarations (even though
-# the matching .cpp only ever dlopen()s libasound.so at runtime via a
-# LATESYM_GET symbol table, never linked at build time - the header still
-# has to compile regardless), and separately ntgcalls' own *vendored*
-# X11/Xlib.h itself failed to find X11/X.h - its downloaded X11 headers
-# are incomplete on their own and evidently expect the rest from the
-# system's real libx11-dev. Both are "partially vendored, not fully
-# self-contained" - the vendoring reduces linking (final .so binaries) but
-# not necessarily the full header closure. Given that pattern held twice
-# and each CI round-trip costs ~35-45 min, the remaining untested members
-# of the same removed cluster (libjpeg-dev/libpipewire-0.3-dev/
-# libevent-dev) were restored preemptively rather than found one file at a
-# time - no positive build confirmation either way for those three
-# specifically (unlike libpulse-dev, ALSA, and X11, which do have it).
+# Everything else from the old list (libjpeg-dev, libasound2-dev,
+# libpulse-dev, the libx11-dev/libxext-dev/.../libxcomposite-dev cluster,
+# libpipewire-0.3-dev, libevent-dev) is kept, even though ntgcalls' own
+# CMake does fetch its own copies of X11/mesa/glib/ffmpeg/openh264
+# (confirmed live via its configure output - "-- glib v2.89.0", "-- libX11
+# v1.8.13", ...). The "ntgcalls vendors its own copies, so the system
+# package is unneeded" theory looked solid from reading this project's own
+# CMakeLists.txt alone, but three separate real CI failures across the
+# first dpkg-buildpackage runs of this migration proved it wrong every
+# time it was actually checked: ntgcalls/include/ntgcalls/devices/alsa_device_module.hpp
+# directly #includes <alsa/asoundlib.h> (even though the matching .cpp
+# only ever dlopen()s libasound.so at runtime via a LATESYM_GET symbol
+# table, never linked at build time); ntgcalls' own *vendored* X11/Xlib.h
+# itself failed to find X11/X.h (its downloaded X11 headers are incomplete
+# on their own, evidently expecting the rest from the system's real
+# libx11-dev); and ntgcalls/include/ntgcalls/utils/pulse_connection.hpp
+# directly #includes <pulse/pulseaudio.h> (an earlier version of this
+# comment claimed libpulse-dev was confirmed unneeded, based on checking
+# only the *.cpp files, not this header - wrong, worth remembering as a
+# reminder to check the .hpp too, not just the .cpp, when doing this kind
+# of source-reading verification). All three are "partially vendored, not
+# fully self-contained" - the vendoring reduces linking (final .so
+# binaries) but not the full header closure. Given the theory has now
+# failed every single time it was actually build-checked, the remaining
+# untested members of the same removed cluster (libjpeg-dev/
+# libpipewire-0.3-dev/libevent-dev) were restored preemptively rather than
+# waiting to find each one via its own separate failing CI run (~35-45 min
+# each) - no positive build confirmation either way for those three
+# specifically, unlike ALSA/X11/pulse which now all have real negative
+# confirmation (a genuine compile failure without them).
 #
 # libspdlog-dev/libfmt-dev removed - spdlog is now built from source under
 # the same Clang+libc++ toolchain as PJSIP/TDLib below (Debian's own
@@ -79,6 +83,7 @@ Build-Depends: debhelper-compat (= 13),
  nasm,
  libjpeg-dev,
  libasound2-dev,
+ libpulse-dev,
  libx11-dev,
  libxext-dev,
  libxdamage-dev,
