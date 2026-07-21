@@ -22,18 +22,6 @@ DEPS_PREFIX := $(CURDIR)/debian/build-deps/local
 export PKG_CONFIG_PATH := $(DEPS_PREFIX)/lib/pkgconfig
 BUILD_JOBS ?= 4
 
-# dh_dwz (debug-info deduplication across the package's binaries, purely a
-# -dbgsym-package-size optimization, not a correctness requirement) fails
-# outright on both bookworm and trixie's own dwz binary: "Unknown debugging
-# section .debug_addr" - real, confirmed CI failure, not hypothetical.
-# Clang 21 (needed for ntgcalls, see the CLANG_VERSION block below) emits
-# DWARF sections that both Debian releases' own (comparatively old) dwz
-# don't understand yet. nodwz is debhelper's own documented
-# DEB_BUILD_OPTIONS flag for exactly this situation - skips dh_dwz
-# entirely rather than fighting dwz version skew, at the cost of a larger
-# (uncompressed) -dbgsym package.
-export DEB_BUILD_OPTIONS += nodwz
-
 # apt's own clang is too old on both Debian releases this project targets
 # to even compile ntgcalls' vendored Chromium libc++ headers (bookworm's
 # apt clang 14: real compile errors, not a warning; trixie's apt clang
@@ -161,6 +149,22 @@ override_dh_auto_test:
 
 override_dh_installsystemd:
 	dh_installsystemd --name=tg2sip-webrtc
+
+override_dh_dwz:
+	# dh_dwz (de-duplicates debug info across a package's binaries into the
+	# -dbgsym package, purely a size optimization, not a correctness
+	# requirement) fails outright on both bookworm's and trixie's own dwz
+	# binary: "Unknown debugging section .debug_addr" - real, confirmed CI
+	# failure on the first two full compiles+links of this migration, not
+	# hypothetical. Clang 21 (needed for ntgcalls, see CLANG_VERSION above)
+	# emits DWARF sections neither Debian release's own (comparatively old)
+	# dwz understands yet. DEB_BUILD_OPTIONS=nostrip would also skip this,
+	# but that disables actual stripping too, shipping full debug info in
+	# the main (not -dbgsym) package - a real size/behavior change, not
+	# just a build-mechanics one. This no-op override skips only dh_dwz
+	# itself; dh_strip still runs normally, still produces a proper
+	# -dbgsym split, just without the extra cross-binary deduplication
+	# pass.
 
 override_dh_clean:
 	dh_clean
