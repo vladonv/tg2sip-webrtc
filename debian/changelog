@@ -1,3 +1,23 @@
+tg2sip-webrtc (0.1.3) unstable; urgency=medium
+
+  * Replace tgcalls backend with ntgcalls (see below), fixing the iOS-
+    caller silent-audio bug.
+  * Requires a new Clang+libc++ toolchain to build (ntgcalls ships a
+    prebuilt WebRTC static library unconditionally compiled that way) -
+    see the updated README/buildenv/build-clang-libcxx-deps.sh and
+    debian/rules.
+  * Fix real silent-audio bugs found during the migration: a libsrtp
+    version collision between PJSIP's and WebRTC's bundled copies, a
+    gating bug in ntgcalls itself (reported upstream:
+    pytgcalls/ntgcalls#52), and a Microphone/Speaker device mixup on our
+    own side.
+  * voip_proxy_* settings are now inert (logged as a startup warning if
+    set) - ntgcalls has no VoIP media proxy hook at all, unlike the old
+    tgcalls backend. proxy_* (MTProto/TDLib) is unaffected.
+  * Remove the now-dead third_party/tgcalls submodule and its patches.
+
+ -- Vlad Vorobyev <vlad.vorobev@gmail.com>  Tue, 21 Jul 2026 16:21:13 +0300
+
 tg2sip-webrtc (0.1.2) unstable; urgency=medium
 
   * Wire voip_proxy_* settings into tgcalls::Descriptor::proxy, so a
