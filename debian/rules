@@ -131,14 +131,89 @@ override_dh_auto_configure:
 	# dh_auto_configure/dh_auto_build below) picks up the fetched modern
 	# CMake instead of apt's too-old one - debhelper just runs "cmake" via
 	# PATH, it has no separate knob for this.
+	# CMAKE_INSTALL_RPATH: see override_dh_auto_install below for why
+	# libc++.so.1/libc++abi.so.1 get bundled into a private
+	# usr/lib/tg2sip-webrtc/ instead of relying on a system-wide
+	# libc++1/libc++abi1 - this is the half of that fix that points the
+	# installed binaries at the bundled copies. $$ORIGIN is a dynamic
+	# linker token (resolved at load time to the directory containing the
+	# running executable, i.e. /usr/bin), not a shell/Make variable - the
+	# doubled $$ is only to get Make to emit a literal $ORIGIN for the
+	# shell/cmake/linker to see.
 	PATH="$(CMAKE_DIR)/bin:$$PATH" dh_auto_configure -- \
 		-DCMAKE_PREFIX_PATH=$(DEPS_PREFIX) \
 		-DCMAKE_C_COMPILER=$(CC) -DCMAKE_CXX_COMPILER=$(CXX) \
 		-DCMAKE_CXX_FLAGS="$(CLANG_CXXFLAGS)" \
-		-DCMAKE_EXE_LINKER_FLAGS="$(CLANG_LDFLAGS)"
+		-DCMAKE_EXE_LINKER_FLAGS="$(CLANG_LDFLAGS)" \
+		-DCMAKE_INSTALL_RPATH='$$ORIGIN/../lib/tg2sip-webrtc'
 
 override_dh_auto_build:
 	PATH="$(CMAKE_DIR)/bin:$$PATH" dh_auto_build -- -j$(BUILD_JOBS)
+
+override_dh_auto_install:
+	dh_auto_install
+	# No current Debian release (bookworm or trixie) ships a libc++1/
+	# libc++abi1 new enough for ntgcalls' prebuilt WebRTC ABI - only
+	# apt.llvm.org's Clang $(CLANG_VERSION) build of them does, and that apt
+	# source is only ever added on the CI builder (see the "Install newer
+	# Clang" step in .github/workflows/deb-packages.yml), never on any
+	# install target. Confirmed live on a real target (.81 test box,
+	# 2026-07-22): `apt upgrade` doesn't error, it silently "keeps back"
+	# tg2sip-webrtc forever, since ${shlibs:Depends} recorded a plain
+	# `libc++1 (>= 1:21...)` that stock Debian repos can never satisfy.
+	# Fix: ship private copies of just these two libraries (both otherwise
+	# only depend on libc/libm/libgcc_s, all universally satisfiable, so
+	# nothing else needs the same treatment) and point the binaries at them
+	# via the CMAKE_INSTALL_RPATH set above instead. dpkg-shlibdeps
+	# resolves the binaries' $ORIGIN-relative RPATH against this same
+	# package's own build tree (already populated by the dh_auto_install
+	# call above by the time dh_shlibdeps runs later in the dh sequence),
+	# recognizes both libraries as shipped inside this package, and drops
+	# the external libc++1/libc++abi1 Depends entirely instead of pinning
+	# an unsatisfiable version.
+	#
+	# Resolved via ldd on the just-built binary rather than a hardcoded
+	# path - apt.llvm.org's libc++1/libc++abi1 packages install to the
+	# plain multiarch path (/usr/lib/x86_64-linux-gnu/), which is what
+	# actually gets linked, not the versioned /usr/lib/llvm-$(CLANG_VERSION)/
+	# path that also exists alongside it.
+	mkdir -p debian/tg2sip-webrtc/usr/lib/tg2sip-webrtc
+	for lib in $$(ldd debian/tg2sip-webrtc/usr/bin/tg2sip-webrtc | \
+			grep -oE '/\S*/libc\+\+(abi)?\.so\.[0-9]+' | sort -u); do \
+		cp -L "$$lib" debian/tg2sip-webrtc/usr/lib/tg2sip-webrtc/"$$(basename "$$lib")"; \
+	done
+	test -e debian/tg2sip-webrtc/usr/lib/tg2sip-webrtc/libc++.so.1
+	test -e debian/tg2sip-webrtc/usr/lib/tg2sip-webrtc/libc++abi.so.1
+	# Real dpkg-buildpackage run (.83, 2026-07-22) showed the above isn't
+	# quite enough on its own: dh_shlibdeps also independently scans these
+	# two bundled .so files as libraries shipped by this package (not just
+	# the binaries that link against them), and the plain `cp` above
+	# carries no RPATH of its own - libc++.so.1's real NEEDED entry on
+	# libc++abi.so.1 then can't be resolved against its *sibling* in the
+	# same directory (only the main binary's own RPATH, set via
+	# CMAKE_INSTALL_RPATH above, covers *that* file), so it fell back to
+	# matching the system libc++abi1 package and re-introduced the exact
+	# unsatisfiable-version Depends this whole override exists to remove -
+	# confirmed live: `dpkg-deb -f ... Depends` still listed
+	# `libc++abi1 (>= 1:21...)` even with both files correctly bundled.
+	# Fix: give each bundled library its own $ORIGIN rpath too, so
+	# dh_shlibdeps resolves libc++.so.1's own need for libc++abi.so.1
+	# locally regardless of which binary it's being analyzed on behalf of.
+	patchelf --set-rpath '$$ORIGIN' \
+		debian/tg2sip-webrtc/usr/lib/tg2sip-webrtc/libc++.so.1 \
+		debian/tg2sip-webrtc/usr/lib/tg2sip-webrtc/libc++abi.so.1
+
+override_dh_makeshlibs:
+	# dh_makeshlibs' default ldconfig-trigger heuristic fires for any .so
+	# file anywhere in the package, but usr/lib/tg2sip-webrtc/ is a private
+	# directory outside ldconfig's scanned paths (deliberately - see the
+	# bundling comment above) - real dpkg-buildpackage + lintian run
+	# (.82/.83, 2026-07-22) confirmed the unexcluded default trips
+	# package-has-unnecessary-activation-of-ldconfig-trigger. -X excludes
+	# just these bundled libs from shlibs/ldconfig-trigger processing;
+	# dh_shlibdeps (a separate step, unaffected by this) still needs to see
+	# them to resolve the binaries' RPATH-based NEEDED entries.
+	dh_makeshlibs -a -X usr/lib/tg2sip-webrtc -O--buildsystem=cmake+ninja
 
 override_dh_auto_test:
 	# No CMake enable_testing()/add_test() in this project, so the Ninja

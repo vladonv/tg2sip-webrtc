@@ -1,3 +1,19 @@
+tg2sip-webrtc (0.1.4) unstable; urgency=medium
+
+  * Fix 0.1.3 being permanently uninstallable/un-upgradable outside a
+    machine with apt.llvm.org enabled: it depended on libc++1/libc++abi1
+    at the exact version linked on the CI builder (Clang 21, required for
+    ntgcalls' prebuilt WebRTC ABI), which no current Debian release ships
+    - apt silently "kept back" the package instead of erroring. Fixed by
+    bundling both libraries into a private usr/lib/tg2sip-webrtc/ instead
+    of depending on the system to provide them, with the binaries' RPATH
+    (and the bundled libraries' own RPATH, needed separately - see
+    debian/rules) pointed at that directory. Confirmed via real
+    dpkg-buildpackage runs on both bookworm and trixie: Depends now lists
+    only ordinary Debian packages, lintian is fully clean.
+
+ -- Vlad Vorobyev <vlad.vorobev@gmail.com>  Wed, 22 Jul 2026 13:35:31 +0300
+
 tg2sip-webrtc (0.1.3) unstable; urgency=medium
 
   * Replace tgcalls backend with ntgcalls (see below), fixing the iOS-
