@@ -31,6 +31,7 @@ private:
     bool pjsip_log_sip_messages_;
     int tgcalls_log_level_;
     int tdlib_log_level_;
+    std::string log_folder_;
 
     unsigned int sip_port_;
     std::string id_uri_;
@@ -93,6 +94,8 @@ public:
     int tgcalls_log_level() const { return tgcalls_log_level_; };
 
     int tdlib_log_level() const { return tdlib_log_level_; };
+
+    std::string log_folder() const { return log_folder_; };
 
     unsigned int sip_port() const { return sip_port_; };
 

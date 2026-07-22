@@ -14,9 +14,17 @@ case "$1" in
 
         # $TG2SIP_HOME itself is shipped as an empty dir (debian/*.dirs) so
         # dpkg owns its existence; just fix up ownership here. This is where
-        # tg2sip-gendb's TDLib session (db.sqlite) and the daemon's own log files
-        # (tg2sip.log/tdlib.log - see tg2sip/logging.cpp) land, since the
-        # systemd unit's WorkingDirectory points here.
+        # tg2sip-gendb's TDLib session (db.sqlite/td.binlog) lands, since the
+        # systemd unit's WorkingDirectory points here. The daemon's own log
+        # files (tg2sip.log/tdlib.log) go to /var/log/tg2sip-webrtc instead
+        # (LogsDirectory= in the systemd unit creates it, no action needed
+        # here) - kept separate from this directory deliberately, since this
+        # one also holds the live TDLib session, and log access shouldn't
+        # require session access. Only takes effect via [logging]
+        # log_folder= in tg2sip.conf - on an upgrade from a pre-log_folder
+        # version, dpkg won't inject the new key into a locally-modified
+        # conffile, so an existing install's logs keep landing here (cwd)
+        # exactly as before, until the admin adds it manually.
         chown "$TG2SIP_USER:$TG2SIP_USER" "$TG2SIP_HOME"
         chmod 750 "$TG2SIP_HOME"
 

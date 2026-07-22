@@ -34,6 +34,7 @@ Settings::Settings(INIReader &reader) {
     tgcalls_log_level_ = std::clamp(static_cast<int>(reader.GetInteger("logging", "tgcalls", 5)), 0, 6);
     pjsip_log_level_ = std::clamp(static_cast<int>(reader.GetInteger("logging", "pjsip", 2)), 0, 6);
     pjsip_log_sip_messages_ = reader.GetBoolean("logging", "sip_messages", true);
+    log_folder_ = reader.Get("logging", "log_folder", "");
 
     // sip
     sip_port_ = static_cast<unsigned int>(reader.GetInteger("sip", "port", 0));
@@ -49,7 +50,7 @@ Settings::Settings(INIReader &reader) {
     api_id_ = static_cast<int>(reader.GetInteger("telegram", "api_id", 0));
     api_hash_ = reader.Get("telegram", "api_hash", "");
     db_folder_ = reader.Get("telegram", "database_folder", "");
-    system_language_code_ = reader.Get("telegram", "database_folder", "en-US");
+    system_language_code_ = reader.Get("telegram", "system_language_code", "en-US");
     device_model_ = reader.Get("telegram", "device_model", "PC");
     system_version_ = reader.Get("telegram", "system_version", "Linux");
     application_version_ = reader.Get("telegram", "application_version", "1.0");

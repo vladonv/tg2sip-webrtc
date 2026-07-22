@@ -17,6 +17,20 @@ ExecStart=/usr/bin/tg2sip-webrtc
 Restart=on-failure
 RestartSec=5
 
+# Creates/owns /var/log/tg2sip-webrtc before ExecStart runs (systemd-native
+# equivalent of the hand-rolled dh_installdirs+postinst chown used for
+# /var/lib/tg2sip-webrtc below) - separates the daemon's own log files
+# (tg2sip.log/tdlib.log, see [logging] log_folder= in tg2sip.conf and
+# tg2sip/logging.cpp) from /var/lib's TDLib session state (db.sqlite,
+# td.binlog - effectively an active Telegram login), so someone can be
+# given read access to logs for troubleshooting without also handing them
+# the live session. WorkingDirectory= deliberately stays pointed at
+# /var/lib/tg2sip-webrtc, not this - existing installs' conffiles predate
+# log_folder= and dpkg won't inject it into a locally-modified conffile on
+# upgrade, so the TDLib database_folder default (empty = cwd) must keep
+# resolving to /var/lib/tg2sip-webrtc exactly as before, unconditionally.
+LogsDirectory=tg2sip-webrtc
+
 # The default SIP port (5060, see /etc/tg2sip-webrtc/tg2sip.conf) is >= 1024,
 # so it's unprivileged and needs no extra capability to bind as this
 # non-root user. If the port is ever reconfigured below 1024, add
@@ -26,11 +40,13 @@ RestartSec=5
 CapabilityBoundingSet=
 
 # Hardening. Unlike monast (read-only), this daemon needs to write its
-# TDLib session database and its own log files - both land in
-# WorkingDirectory (see tg2sip/logging.cpp's relative "tg2sip.log" /
-# "tdlib.log" paths and tg2sip.conf's [telegram] database_folder=, which
-# defaults to cwd when empty), so ProtectSystem=strict is paired with an
-# explicit ReadWritePaths instead of ProtectHome-style full lockdown.
+# TDLib session database (WorkingDirectory, see tg2sip.conf's [telegram]
+# database_folder=) and, on installs with log_folder= set, its own log
+# files under the LogsDirectory= above - so ProtectSystem=strict is paired
+# with an explicit ReadWritePaths for the former instead of ProtectHome-
+# style full lockdown (LogsDirectory=/StateDirectory=-class directives are
+# automatically read-write under ProtectSystem=strict, no separate
+# ReadWritePaths entry needed for those - only WorkingDirectory needs one).
 # PJSIP is built with --disable-sound (SIP/RTP is over the network, no
 # local audio hardware involved) so PrivateDevices is safe to keep on.
 NoNewPrivileges=true

@@ -1,3 +1,23 @@
+tg2sip-webrtc (0.1.5) unstable; urgency=medium
+
+  * Add [logging] log_folder= to separate the daemon's own log files
+    (tg2sip.log/tdlib.log) from /var/lib/tg2sip-webrtc's TDLib session
+    state (db.sqlite/td.binlog) - previously both were hardcoded to land
+    in the current working directory. The packaged systemd unit now sets
+    it to /var/log/tg2sip-webrtc (created automatically via LogsDirectory=)
+    so logs can be made readable for troubleshooting without also exposing
+    the live Telegram session. Empty/unset keeps the old cwd-relative
+    behavior unchanged - existing installs' conffiles predate this key and
+    dpkg won't inject it into a locally-modified conffile on upgrade, so
+    nothing changes for them until the admin opts in.
+  * Fix system_language_code being read from the wrong INI key
+    (database_folder) since this setting was first introduced - a
+    copy-paste bug. Purely informational (Telegram's API only uses it as
+    a client-version-string field), no functional impact, but worth
+    getting right.
+
+ -- Vlad Vorobyev <vlad.vorobev@gmail.com>  Wed, 22 Jul 2026 15:44:01 +0300
+
 tg2sip-webrtc (0.1.4) unstable; urgency=medium
 
   * Fix 0.1.3 being permanently uninstallable/un-upgradable outside a
