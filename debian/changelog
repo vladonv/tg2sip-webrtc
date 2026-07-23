@@ -1,3 +1,15 @@
+tg2sip-webrtc (0.1.6) unstable; urgency=medium
+
+  * Fix inverted sender-type check that silently broke DTMF-over-text:
+    Telegram->SIP calls' wait_dtmf state never processed text messages
+    from real users (messageSenderUser), only the impossible/UB
+    messageSenderChat branch - so sending digits to the gateway account
+    during a live call never reached DialDtmf()/dialDtmf(). One-line
+    condition fix (== -> !=) in
+    Gateway::process_event(updateNewMessage).
+
+ -- Vlad Vorobyev <vlad.vorobev@gmail.com>  Thu, 23 Jul 2026 17:20:54 +0300
+
 tg2sip-webrtc (0.1.5) unstable; urgency=medium
 
   * Add [logging] log_folder= to separate the daemon's own log files

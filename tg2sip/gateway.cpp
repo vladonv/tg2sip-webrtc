@@ -873,7 +873,7 @@ void Gateway::process_event(td::td_api::object_ptr<td::td_api::updateCall> updat
 void Gateway::process_event(td::td_api::object_ptr<td::td_api::updateNewMessage> update_message) {
 
     auto &sender = update_message->message_->sender_id_;
-    if (sender->get_id() == td_api::messageSenderUser::ID)
+    if (sender->get_id() != td_api::messageSenderUser::ID)
         return;
     auto user = static_cast<const td_api::messageSenderUser *>(sender.get());
 
