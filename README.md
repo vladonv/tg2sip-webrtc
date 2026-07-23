@@ -51,3 +51,13 @@ SIP->Telegram calls can be done using 3 extension types:
 
 All Telegram->SIP calls will be redirected to `callback_uri` SIP-URI that can be set in from `tg2sip.conf` file.  
 Extra information about caller Telegram account will be added into `X-TG-*` SIP tags.
+
+## DTMF (dialing digits during a call)
+
+The Telegram mobile apps have no in-call dialpad, so there's no way to send
+touch-tones directly from a live Telegram call - needed e.g. to navigate a
+SIP-side IVR menu. As a workaround, while a call is bridged (either
+direction), send a plain text message containing only DTMF characters
+(`0-9`, `A-D`, `*`, `#`) to the same Telegram chat the call is with - it's
+converted into real DTMF (via PJSIP's `dialDtmf()`) on the live SIP leg
+instead of being treated as a chat message.
