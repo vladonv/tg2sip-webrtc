@@ -127,6 +127,35 @@ jobs:
       - name: Install build dependencies (from debian/control)
         run: apt-get build-dep -y .
 
+      # debian/rules' override_dh_auto_configure rebuilds PJSIP, TDLib and
+      # spdlog from source into debian/build-deps on every single run
+      # (~40 of this job's ~45-60 total minutes per the timeout-minutes
+      # comment above) even though none of the three have changed since
+      # the last build - pjproject/spdlog are pinned tags, and only TDLib
+      # floats (cloned from `master`, no fixed commit - a separate
+      # looseness, not fixed here). Cache the whole build-deps tree
+      # (source checkouts + the shared DEPS_PREFIX install output) keyed
+      # on everything that can change what ends up in it, including
+      # TDLib's current upstream HEAD so the cache auto-invalidates
+      # whenever TDLib actually moves instead of silently going stale.
+      # debian/rules' own `test -d ... || git clone` guards already skip
+      # re-cloning on a cache hit; make/ninja then see every object file's
+      # mtime already up to date (tar-based cache restore preserves them)
+      # and treat configure/build/install as no-ops beyond a few seconds
+      # of bookkeeping - CLANG_VERSION/CMAKE_VERSION below must be kept in
+      # sync with the same-named Make variables in debian/rules by hand,
+      # there's no single source of truth shared between the YAML and the
+      # Makefile.
+      - name: Resolve TDLib HEAD for cache key
+        id: tdlib_head
+        run: echo "sha=$(git ls-remote https://github.com/tdlib/td.git refs/heads/master | cut -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache PJSIP/TDLib/spdlog build
+        uses: actions/cache@v6
+        with:
+          path: debian/build-deps
+          key: build-deps-${{ matrix.codename }}-clang21-cmake4.3.3-pjproject2.9-spdlogv1.15.2-tdlib${{ steps.tdlib_head.outputs.sha }}
+
       - name: Read package version
         # Captured *before* the distro-suffix step below, so this is the
         # plain upstream version (e.g. "0.1.1") shared by every matrix leg -
