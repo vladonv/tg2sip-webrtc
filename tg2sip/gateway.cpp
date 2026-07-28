@@ -83,7 +83,22 @@ namespace state_machine::actions {
         DEBUG(logger, "[{}] stored user id {}", ctx.id(), ctx.user_id);
     }
 
-    void CleanTgId::operator()(Context &ctx) const {
+    void CleanTgId::operator()(Context &ctx, const td::td_api::object_ptr<td::td_api::updateCall> &event,
+                               std::shared_ptr<spdlog::logger> logger) const {
+        const auto &state = *event->call_->state_;
+
+        // TDLib's own account of why the call ended - the SIP/CEL side only
+        // ever sees "the tg2sip leg sent BYE", not whether that's because the
+        // Telegram user hung up, the app disconnected, or the call was
+        // declined/missed, so this is the only place that reason is visible.
+        if (state.get_id() == td_api::callStateDiscarded::ID) {
+            const auto &discarded = static_cast<const td_api::callStateDiscarded &>(state);
+            logger->info("[{}] TG #{} call discarded: {}", ctx.id(), ctx.tg_call_id, to_string(discarded.reason_));
+        } else if (state.get_id() == td_api::callStateError::ID) {
+            const auto &error_state = static_cast<const td_api::callStateError &>(state);
+            logger->info("[{}] TG #{} call ended with error: {}", ctx.id(), ctx.tg_call_id, to_string(error_state.error_));
+        }
+
         ctx.tg_call_id = 0;
     }
 

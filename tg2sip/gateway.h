@@ -112,7 +112,8 @@ namespace state_machine::actions {
     };
 
     struct CleanTgId {
-        void operator()(Context &ctx) const;
+        void operator()(Context &ctx, const td::td_api::object_ptr<td::td_api::updateCall> &event,
+                        std::shared_ptr<spdlog::logger> logger) const;
     };
 
     struct CleanSipId {

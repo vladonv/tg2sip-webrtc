@@ -1,3 +1,13 @@
+tg2sip-webrtc (0.1.7) unstable; urgency=medium
+
+  * Log TDLib's own call-discard/error reason (CleanTgId) when a
+    Telegram-originated call ends - the SIP/CEL side only ever sees the
+    tg2sip leg send BYE, never why (user hangup vs declined vs
+    disconnected). Logged at info level via the existing 'core' channel,
+    no new config key.
+
+ -- Vlad Vorobyev <vlad.vorobev@gmail.com>  Tue, 28 Jul 2026 13:28:47 +0300
+
 tg2sip-webrtc (0.1.6) unstable; urgency=medium
 
   * Fix inverted sender-type check that silently broke DTMF-over-text:
